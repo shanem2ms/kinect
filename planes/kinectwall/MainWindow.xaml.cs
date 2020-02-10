@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
@@ -52,7 +53,17 @@ namespace kinectwall
         Matrix4 viewMat = Matrix4.Identity;
         CharViz character;
 
+        public enum Tools
+        {
+            Camera,
+            Pick
+        };
+
+        Tools currentTool = Tools.Camera;
+        public string[] ToolNames { get => Enum.GetNames(typeof(Tools)); }
+
         DepthVid depthVid = null;
+
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
         /// </summary>
@@ -107,21 +118,23 @@ namespace kinectwall
             }
         }
 
+        bool getNextFramePixels = false;
+
         private void GlControl_MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
         {
-            if (System.Windows.Input.Keyboard.IsKeyDown(Key.LeftCtrl))
-            {
-                pickPt = e.Location;
-                Vector2 ipt = new Vector2((float)pickPt.Value.X / (float)glControl.ClientSize.Width,
-                    (float)pickPt.Value.Y / (float)glControl.ClientSize.Height);
-                this.depthVid.PickPt = ipt;
-            }
-            else
+            if (currentTool == Tools.Camera)
             {
                 mouseDownPt = e.Location;
                 this.rotMatrixDn = this.rotMatrix;
                 yRotDn = yRot;
                 xRotDn = xRot;
+            }
+            else if (currentTool == Tools.Pick)
+            {
+                pickPt = e.Location;
+                Vector2 ipt = new Vector2((float)pickPt.Value.X / (float)glControl.ClientSize.Width,
+                    (float)pickPt.Value.Y / (float)glControl.ClientSize.Height);
+                getNextFramePixels = true;
             }
         }
         System.Timers.Timer t = new System.Timers.Timer();
@@ -210,16 +223,6 @@ namespace kinectwall
                 case Key.R:
                     App.Recording = !App.Recording;
                     break;
-                case Key.Space:
-                    isPlaying = !isPlaying;
-                    if (depthVid != null) depthVid.isPlaying = !depthVid.isPlaying;
-                    break;
-                case Key.Right:
-                    if (!isPlaying) frametime += framerate;
-                    break;
-                case Key.Left:
-                    if (!isPlaying) frametime -= framerate;
-                    break;
                 case Key.B:
                     visibleBits = (visibleBits + 1) % 4;
                     break;
@@ -236,7 +239,22 @@ namespace kinectwall
             base.OnKeyDown(e);
         }
 
-        bool isPlaying = true;
+        struct GLPixel
+        {
+            public byte r;
+            public byte g;
+            public byte b;
+            public byte a;
+
+            public override string ToString()
+            {
+                return $"{r},{g},{b},{a}";
+            }
+        }
+
+        GLPixel[] pixels = null;
+
+        bool isPlaying = false;
         long frametime = 0;
         long framerate = 10000000 / 60;
         KinectData.Frame curFrame = null;
@@ -274,9 +292,23 @@ namespace kinectwall
                 bodyViz.Render(curFrame, viewProj, timeStamp);
             if ((visibleBits & 2) != 0)
                 character.Render(curFrame, viewProj);
-            glControl.SwapBuffers();
-            
+
             if (isPlaying) frametime += framerate;
+            
+            if (getNextFramePixels)
+            {
+                if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))
+                    pixels = new GLPixel[glControl.Width * glControl.Height];
+                GL.ReadBuffer(ReadBufferMode.Back);
+                GL.ReadPixels<GLPixel>(0, 0, glControl.Width, glControl.Height, OpenTK.Graphics.ES30.PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                ErrorCode code = GL.GetError();
+
+                GLPixel pixel = pixels[(glControl.Height - pickPt.Value.Y) * glControl.Width + pickPt.Value.X];
+                System.Diagnostics.Debug.WriteLine(pixel);
+                getNextFramePixels = false;
+            }
+            glControl.SwapBuffers();
+
         }
 
         private void glControl_Resize(object sender, EventArgs e)
@@ -313,5 +345,28 @@ namespace kinectwall
         }
 
 
+        private void Toolbar_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            this.currentTool = (Tools)Enum.Parse(typeof(Tools), (string)e.AddedItems[0]);
+        }
+
+        private void backBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!isPlaying) frametime -= framerate;
+            else
+                frametime += new TimeSpan(0, 0, 0, 30).Ticks;
+
+        }
+        private void playBtn_Click(object sender, RoutedEventArgs e)
+        {
+            isPlaying = !isPlaying;
+            if (depthVid != null) depthVid.isPlaying = !depthVid.isPlaying;
+            else frametime -= new TimeSpan(0, 0, 0, 30).Ticks;
+        }
+
+        private void fwdBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!isPlaying) frametime += framerate;
+        }
     }
 }

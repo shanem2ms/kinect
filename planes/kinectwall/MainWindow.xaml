@@ -6,12 +6,31 @@
         xmlns:local="clr-namespace:kinectwall"
         xmlns:opengl="clr-namespace:OpenGL;assembly=OpenGL.Net.WinForms"
         xmlns:opentk="clr-namespace:OpenTK;assembly=OpenTK.GLControl"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="1080" Width="1920" Loaded="Window_Loaded">
+        mc:Ignorable="d"        
+        Title="MainWindow" Height="600" Width="800" Loaded="Window_Loaded">
+    <Window.Resources>
+        <ResourceDictionary Source="KinectWall.xaml" />
+    </Window.Resources>
     <Grid>
-        <WindowsFormsHost x:Name="HostControl" Margin="0,20,0,0" >
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal">
+            <Button x:Name="backBtn" Margin="5" Content="Back" Click="backBtn_Click" />
+            <Button x:Name="playBtn" Margin="5" Content="Play" Click="playBtn_Click" />
+            <Button x:Name="fwdBtn" Margin="5" Content="Fwd" Click="fwdBtn_Click" />
+        </StackPanel>
+        <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <WindowsFormsHost x:Name="HostControl" Margin="0,20,0,0" Grid.Column="1" >
             <opentk:GLControl x:Name="glControl" Resize="glControl_Resize" 
                               />
         </WindowsFormsHost>
+            <ListBox ItemsSource="{Binding ToolNames}" SelectionMode="Single" Width="100" SelectionChanged="Toolbar_SelectionChanged" />
+        </Grid>
     </Grid>
 </Window>
