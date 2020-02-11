@@ -158,7 +158,8 @@ namespace kinectwall
             }
             bodyViz = new BodyViz();
 
-            character = new CharViz(App.CharacterFile);
+            if (App.CharacterFile != null)
+                character = new CharViz(App.CharacterFile);
 
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
             //this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1.0f, 0.5f, 100.0f);
@@ -361,12 +362,13 @@ namespace kinectwall
         {
             isPlaying = !isPlaying;
             if (depthVid != null) depthVid.isPlaying = !depthVid.isPlaying;
-            else frametime -= new TimeSpan(0, 0, 0, 30).Ticks;
+            
         }
 
         private void fwdBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!isPlaying) frametime += framerate;
+            else frametime -= new TimeSpan(0, 0, 0, 30).Ticks;
         }
     }
 }

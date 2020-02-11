@@ -33,30 +33,23 @@ namespace kinectwall
             {
                 if (body != null)
                 {
-                    foreach (var kv in body.joints)
+                    body.top.DrawNode((jn) =>
                     {
-                        Vector3 pos = kv.Value.Position;
-                        Quaternion rot = new Quaternion(kv.Value.Orientation.X,
-                            kv.Value.Orientation.Y,
-                            kv.Value.Orientation.Z,
-                            kv.Value.Orientation.W);
-                        Matrix4 worldMat = Matrix4.CreateFromQuaternion(rot) * 
-                            Matrix4.CreateTranslation(pos);
-
+                        Matrix4 worldMat = jn.WorldMat;
                         program.Set1("opacity", 1.0f);
 
-                        Matrix4 matWorldViewProj = matWorldViewProj =
+                        Matrix4 matWorldViewProj = 
                             Matrix4.CreateTranslation(0, -0.5f, -0.5f) *
-                            Matrix4.CreateScale(0.06f, 0.01f, 0.01f) *
+                            Matrix4.CreateScale(0.05f, 0.004f, 0.004f) *
                             Matrix4.CreateTranslation(0, 0, 0) *
                             worldMat * viewProj;
-                        program.Set3("meshColor", new Vector3(1,0,0));
+                        program.Set3("meshColor", new Vector3(1, 0, 0));
                         GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
                         vertexArray.Draw();
 
                         matWorldViewProj = matWorldViewProj =
                                 Matrix4.CreateTranslation(-0.5f, 0, -0.5f) *
-                                Matrix4.CreateScale(0.01f, 0.06f, 0.01f) *
+                                Matrix4.CreateScale(0.004f, 0.06f, 0.004f) *
                                 Matrix4.CreateTranslation(0, 0, 0) *
                                 worldMat * viewProj;
                         program.Set3("meshColor", new Vector3(0, 1, 0));
@@ -65,7 +58,7 @@ namespace kinectwall
 
                         matWorldViewProj = matWorldViewProj =
                                 Matrix4.CreateTranslation(-0.5f, -0.5f, 0) *
-                                Matrix4.CreateScale(0.01f, 0.01f, 0.06f) *
+                                Matrix4.CreateScale(0.004f, 0.004f, 0.06f) *
                                 Matrix4.CreateTranslation(0, 0, 0) *
                                 worldMat * viewProj;
                         program.Set3("meshColor", new Vector3(0, 0, 1));
@@ -73,19 +66,19 @@ namespace kinectwall
                         vertexArray.Draw();
 
                         Vector3 color = new Vector3(0.5f, 1.0f, 0.5f);
-                        if (kv.Value.TrackingState == TrackingState.Inferred)
+                        if (jn.Tracked == TrackingState.Inferred)
                             color = new Vector3(1.0f, 0.5f, 0.5f);
-                        else if (kv.Value.TrackingState == TrackingState.NotTracked)
+                        else if (jn.Tracked == TrackingState.NotTracked)
                             color = new Vector3(1.0f, 0, 0);
 
                         matWorldViewProj = matWorldViewProj =
                             Matrix4.CreateTranslation(-0.5f, -1, -0.5f) *
-                            Matrix4.CreateScale(0.01f * 2, 0.1f, 0.01f * 2) *
+                            Matrix4.CreateScale(0.01f * 2, jn.jointLength, 0.01f * 2) *
                             worldMat * viewProj;
-                        program.Set3("meshColor", color);
+                        program.Set3("meshColor", color);glob
                         GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
                         vertexArray.Draw();
-                    }
+                    });
                 }
             }
         }

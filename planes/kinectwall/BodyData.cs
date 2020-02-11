@@ -153,6 +153,8 @@ namespace KinectData
 
         public Vector3 OriginalWsPos;
         public Quaternion OrigWsOrientation;
+        public Matrix3 origRotMat;
+        public TrackingState Tracked;
 
         public void DebugDebugInfo(int level)
         {
@@ -228,7 +230,7 @@ namespace KinectData
 
         public void SetJoints(Dictionary<JointType, Joint> jointPositions)
         {            
-            SetJointsRec(jointPositions, Matrix4.Identity);
+            SetJointsRec(jointPositions, Matrix3.Identity, Matrix4.Identity);
             SetJointLengths(Matrix4.Identity);
 
             Dictionary<JointType, JointNode> allNodes = new Dictionary<JointType, JointNode>();
@@ -236,28 +238,24 @@ namespace KinectData
 
         }
 
-        void SetJointsRec(Dictionary<JointType, Joint> jointPositions, Matrix4 parentWorldMat)
+        void SetJointsRec(Dictionary<JointType, Joint> jointPositions, Matrix3 parentRot, Matrix4 parentWorldMat)
         {
             Matrix4 wInv = parentWorldMat.Inverted();
 
             Joint joint = jointPositions[jt];
             this.OrigWsOrientation = new Quaternion(joint.Orientation.X, joint.Orientation.Y, joint.Orientation.Z, joint.Orientation.W);
             this.OriginalWsPos = joint.Position;
+            this.origRotMat = Matrix3.CreateFromQuaternion(this.OrigWsOrientation);
+            this.Tracked = joint.TrackingState;
             Vector3 position = Vector3.TransformPosition(
                 joint.Position, wInv);
 
             Vector3 jointDir = position.Normalized();
-            Quaternion pq = parentWorldMat.ExtractRotation().Normalized();
-            Quaternion q =
-               //this.OrigWsOrientation * pq.Inverted();
-            FromToVector(Vector3.UnitZ, jointDir);
-            Vector3 xDir = q * Vector3.UnitX;
-            Vector3 yDir = q * Vector3.UnitY;
-            Vector3 zDir = q * Vector3.UnitZ;
-
-            this.localMat = Matrix4.CreateFromQuaternion(q) *
+            Matrix3 localRot =
+                this.origRotMat * parentRot.Inverted();
+            
+            this.localMat = new Matrix4(localRot) *
                 Matrix4.CreateTranslation(position);
-
 
             Matrix4 worldMat = localMat * parentWorldMat;
 
@@ -265,7 +263,7 @@ namespace KinectData
             {
                 foreach (JointNode cn in this.children)
                 {
-                    cn.SetJointsRec(jointPositions, worldMat);
+                    cn.SetJointsRec(jointPositions, this.origRotMat, worldMat);
                 }
             }
         }
@@ -343,6 +341,11 @@ namespace KinectData
             return l * (1 - i) + r * i;
         }
 
+        static Matrix3 Lerp(Matrix3 l, Matrix3 r, float i)
+        {
+            Quaternion qi = Lerp(l.ExtractRotation(), r.ExtractRotation(), i);
+            return Matrix3.CreateFromQuaternion(qi);
+        }
         static Matrix4 Lerp(Matrix4 l, Matrix4 r, float i)
         {
             Quaternion qi = Lerp(l.ExtractRotation(), r.ExtractRotation(), i);
@@ -363,6 +366,8 @@ namespace KinectData
             jt = left.jt;
             OrigWsOrientation = Lerp(left.OrigWsOrientation, right.OrigWsOrientation, interpVal);
             OriginalWsPos = Lerp(left.OriginalWsPos, right.OriginalWsPos, interpVal);
+            origRotMat = Lerp(left.origRotMat, right.origRotMat, interpVal);
+            Tracked = left.Tracked;
 
             children = new JointNode[left.children.Length];
             for (int idx = 0; idx < children.Length; ++idx)
