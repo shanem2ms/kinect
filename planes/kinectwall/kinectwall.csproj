@@ -83,10 +83,12 @@
     </ApplicationDefinition>
     <Compile Include="Body.cs" />
     <Compile Include="BodyData.cs" />
+    <Compile Include="BulletSimulation.cs" />
     <Compile Include="Character.cs" />
     <Compile Include="CharViz.cs" />
     <Compile Include="Cube.cs" />
     <Compile Include="DepthVid.cs" />
+    <Compile Include="GLMesh.cs" />
     <Compile Include="KinectBody.cs" />
     <Compile Include="Room.cs" />
     <Page Include="KinectWall.xaml">
@@ -128,6 +130,12 @@
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Shaders\Pick.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Shaders\Pick.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Shaders\Bone.frag">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

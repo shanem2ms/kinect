@@ -52,6 +52,8 @@ namespace kinectwall
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
         CharViz character;
+        private GLObjects.Program pickProgram;
+        BulletSimulation bulletSimulation;
 
         public enum Tools
         {
@@ -118,8 +120,6 @@ namespace kinectwall
             }
         }
 
-        bool getNextFramePixels = false;
-
         private void GlControl_MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
         {
             if (currentTool == Tools.Camera)
@@ -134,7 +134,7 @@ namespace kinectwall
                 pickPt = e.Location;
                 Vector2 ipt = new Vector2((float)pickPt.Value.X / (float)glControl.ClientSize.Width,
                     (float)pickPt.Value.Y / (float)glControl.ClientSize.Height);
-                getNextFramePixels = true;
+                DoPick();
             }
         }
         System.Timers.Timer t = new System.Timers.Timer();
@@ -146,7 +146,10 @@ namespace kinectwall
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            bulletSimulation = new BulletSimulation();
+            pickProgram = GLObjects.Program.FromFiles("Pick.vert", "Pick.frag");
             roomViz = new RoomViz();
+            roomViz.Init(bulletSimulation);
             if (App.DepthFile != null)
                 depthVid = new DepthVid();
             if (App.BodyFile != null)
@@ -156,15 +159,12 @@ namespace kinectwall
                 bodyTimeStart = tr.Item1;
                 bodyTimeLength = tr.Item2 - bodyTimeStart;
             }
-            bodyViz = new BodyViz();
+            bodyViz = new BodyViz(pickProgram);
 
             if (App.CharacterFile != null)
                 character = new CharViz(App.CharacterFile);
 
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
-            //this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1.0f, 0.5f, 100.0f);
-
-            //this.viewMat = Matrix4.LookAt(new Vector3(0, 0, -2), new Vector3(0, 0, 0), new Vector3(0, 1, 0));
             glControl.Paint += GlControl_Paint;
             glControl.MouseDown += GlControl_MouseDown;
             glControl.MouseMove += GlControl_MouseMove;
@@ -262,6 +262,8 @@ namespace kinectwall
         bool live = false;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
+            bulletSimulation.Step();
+
             if (live && liveBodies == null)
                 liveBodies = new KinectBody();
 
@@ -290,26 +292,60 @@ namespace kinectwall
             if (jtSelected > 0)
                 curFrame.SetJointColor(jtSelected, new Vector3(1, 1, 0));
             if (curFrame != null && (visibleBits & 1) != 0)
-                bodyViz.Render(curFrame, viewProj, timeStamp);
+                bodyViz.Render(curFrame, viewProj);
             if ((visibleBits & 2) != 0)
                 character.Render(curFrame, viewProj);
 
             if (isPlaying) frametime += framerate;
             
-            if (getNextFramePixels)
-            {
-                if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))
-                    pixels = new GLPixel[glControl.Width * glControl.Height];
-                GL.ReadBuffer(ReadBufferMode.Back);
-                GL.ReadPixels<GLPixel>(0, 0, glControl.Width, glControl.Height, OpenTK.Graphics.ES30.PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
-                ErrorCode code = GL.GetError();
-
-                GLPixel pixel = pixels[(glControl.Height - pickPt.Value.Y) * glControl.Width + pickPt.Value.X];
-                System.Diagnostics.Debug.WriteLine(pixel);
-                getNextFramePixels = false;
-            }
             glControl.SwapBuffers();
 
+        }
+
+        object SelectedObject = null;
+
+        void RefreshSelection()
+        {
+            if (SelectedObject != null)
+            {
+                if (SelectedObject is KinectData.JointNode)
+                {
+                    KinectData.JointNode jn = SelectedObject as KinectData.JointNode;
+                    SelectionId.Content = jn.jt.ToString();
+                }
+            }
+            else
+                SelectionId.Content = "";
+        }
+
+        void DoPick()
+        {
+            GL.Clear(ClearBufferMask.ColorBufferBit);
+            GL.Clear(ClearBufferMask.DepthBufferBit);
+            GL.Disable(EnableCap.Blend);
+            Matrix4 lookTrans = rotMatrix.Inverted() * Matrix4.CreateTranslation(curPos);
+            Matrix4 viewProj = viewMat * projectionMat;
+
+            List<object> pickObjects = new List<object>();
+            this.viewMat = lookTrans.Inverted();
+
+            GL.UseProgram(pickProgram.ProgramName);
+            int idxOffset = 50;
+            if (curFrame != null && (visibleBits & 1) != 0)
+                bodyViz.Pick(curFrame, viewProj, pickObjects, idxOffset);
+
+            if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))
+                pixels = new GLPixel[glControl.Width * glControl.Height];
+            GL.ReadBuffer(ReadBufferMode.Back);
+            GL.ReadPixels<GLPixel>(0, 0, glControl.Width, glControl.Height, OpenTK.Graphics.ES30.PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+            GLPixel pixel = pixels[(glControl.Height - pickPt.Value.Y) * glControl.Width + pickPt.Value.X];
+            int idx = pixel.r | (pixel.g << 8) | (pixel.b << 16);
+            idx -= idxOffset;
+            if (idx >= 0 && idx < pickObjects.Count)
+                SelectedObject = pickObjects[idx];
+            else
+                SelectedObject = null;
+            RefreshSelection();
         }
 
         private void glControl_Resize(object sender, EventArgs e)

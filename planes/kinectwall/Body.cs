@@ -2,16 +2,19 @@
 using OpenTK;
 using GLObjects;
 using KinectData;
-using System;
+using System.Collections.Generic;
 
 namespace kinectwall
 {
     class BodyViz
     {
         private Program program;
+        private Program pickProgram;
         private VertexArray vertexArray;
 
-        public BodyViz()
+        private VertexArray pickVA;
+
+        public BodyViz(Program pickProgram)
         {
             program = Program.FromFiles("Body.vert", "Body.frag");
             ushort[] indices = new ushort[_Cube.Length];
@@ -23,9 +26,39 @@ namespace kinectwall
                 texCoords[i] = new Vector3((float)(side % 2), (float)(side / 3), 1);
             }
             vertexArray = new VertexArray(program, _Cube, indices, texCoords, null);
+            pickVA = new VertexArray(pickProgram, _Cube, indices, null, null);
+            this.pickProgram = pickProgram;
         }
 
-        public void Render(KinectData.Frame frame, Matrix4 viewProj, long timestamp)
+        public void Pick(KinectData.Frame frame, Matrix4 viewProj,
+            List<object> pickObjects, int offset)
+        {
+            int idx = offset;
+            foreach (Body body in frame.bodies)
+            {
+                if (body != null)
+                {
+                    body.top.DrawNode((jn) =>
+                    {
+                        Matrix4 worldMat = jn.WorldMat;
+                        Matrix4 matWorldViewProj = matWorldViewProj =
+                            Matrix4.CreateTranslation(-0.5f, -1, -0.5f) *
+                            Matrix4.CreateScale(0.01f * 2, jn.jointLength, 0.01f * 2) *
+                            worldMat * viewProj;
+                        pickProgram.Set4("pickColor", new Vector4((idx & 0xFF) / 255.0f, 
+                            ((idx >> 8) & 0xFF) / 255.0f,
+                            ((idx >> 16) & 0xFF) / 255.0f, 
+                            1));
+                        GL.UniformMatrix4(pickProgram.LocationMVP, false, ref matWorldViewProj);
+                        vertexArray.Draw();
+                        pickObjects.Add(jn);
+                        idx++;
+                    });
+                }
+            }
+        }
+
+        public void Render(KinectData.Frame frame, Matrix4 viewProj)
         {
             // Select the program for drawing
             GL.UseProgram(program.ProgramName);
@@ -75,7 +108,7 @@ namespace kinectwall
                             Matrix4.CreateTranslation(-0.5f, -1, -0.5f) *
                             Matrix4.CreateScale(0.01f * 2, jn.jointLength, 0.01f * 2) *
                             worldMat * viewProj;
-                        program.Set3("meshColor", color);glob
+                        program.Set3("meshColor", color);
                         GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
                         vertexArray.Draw();
                     });

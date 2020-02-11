@@ -154,6 +154,11 @@ namespace GLObjects
         {
             GL.Uniform4(GetLoc(name), value);
         }
+
+        public void SetMat4(string name, ref Matrix4 value)
+        {
+            GL.UniformMatrix4(GetLoc(name), false, ref value);
+        }
     }
 
     public abstract class BufferBase : IDisposable
