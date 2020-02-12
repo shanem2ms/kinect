@@ -32,31 +32,32 @@ namespace kinectwall
         class MeshInfo
         {
             public Vector3 color;
-            public Vector3 scale;
+            public Matrix4 meshTransform;
         }
         public void Init(BulletSimulation simulation, KinectData.Frame bodyFrame)
         {
-            Vector3[] transvecs = new Vector3[6]
             {
+                Vector3[] transvecs = new Vector3[6]
+                {
                 Vector3.UnitX,
                 Vector3.UnitX * -1,
                 Vector3.UnitY,
                 Vector3.UnitY * -1,
                 Vector3.UnitZ,
                 Vector3.UnitZ * -1
-            };
+                };
 
-            Matrix4[] rotMats = new Matrix4[6]
-            {
+                Matrix4[] rotMats = new Matrix4[6]
+                {
                 Matrix4.CreateFromAxisAngle(Vector3.UnitZ, (float)Math.PI * 0.5f),
                 Matrix4.CreateFromAxisAngle(Vector3.UnitZ, -(float)Math.PI * 0.5f),
                 Matrix4.Identity,
                 Matrix4.CreateFromAxisAngle(Vector3.UnitX, (float)Math.PI),
                 Matrix4.CreateFromAxisAngle(Vector3.UnitX, (float)Math.PI * 0.5f),
                 Matrix4.CreateFromAxisAngle(Vector3.UnitX, -(float)Math.PI * 0.5f)
-            };
+                };
 
-            Vector3[] wallcolors = new Vector3[6] {
+                Vector3[] wallcolors = new Vector3[6] {
                 new Vector3(0, 1, 1),
                 new Vector3(0, 1, 1),
                 new Vector3(1, 1, 0),
@@ -64,23 +65,25 @@ namespace kinectwall
                 new Vector3(1, 0, 1),
                 new Vector3(1, 0, 1) };
 
-            BulletSharp.TriangleMesh wall = Cube.MakeBulletMesh(new Vector3(5, 0.1f, 5));
+                Matrix4 meshTransform = Matrix4.CreateScale(new Vector3(5, 0.1f, 5));
+                BulletSharp.TriangleMesh wall = Cube.MakeBulletMesh(meshTransform);
 
-            for (int i = 0; i < 6; ++i)
-            {
-                Matrix4 matWorld =
-                    rotMats[i] *
-                    Matrix4.CreateTranslation(transvecs[i] * 5) *
-                    Matrix4.CreateTranslation(new Vector3(0, 2, 5));
-                SimObjectMesh obj = new SimObjectMesh(matWorld, 0.0f, wall);
-                obj.objectInfo = new MeshInfo()
+                for (int i = 0; i < 6; ++i)
                 {
-                    color = wallcolors[i],
-                    scale = new Vector3(5, 0.1f, 5)
-                };
-                simObjects.Add(obj);
+                    Matrix4 matWorld =
+                        rotMats[i] *
+                        Matrix4.CreateTranslation(transvecs[i] * 5) *
+                        Matrix4.CreateTranslation(new Vector3(0, 2, 5));
+                    SimObjectMesh obj = new SimObjectMesh(matWorld, 0.0f, wall);
+                    obj.objectInfo = new MeshInfo()
+                    {
+                        color = wallcolors[i],
+                        meshTransform = meshTransform
+                    };
+                    simObjects.Add(obj);
+                }
             }
-
+            /*
             BulletSharp.TriangleMesh smallcubes = Cube.MakeBulletMesh(new Vector3(0.1f, 0.1f, 0.1f));
             for (int i = 0; i < 64; ++i)
             {
@@ -105,7 +108,7 @@ namespace kinectwall
                     RandomNum(-v, v),
                     RandomNum(-v, v)));
                 simObjects.Add(obj);
-            }
+            }*/
 
             Dictionary<KinectData.JointNode, SimObjectMesh>
                 jointSims = new Dictionary<KinectData.JointNode, SimObjectMesh>();
@@ -115,22 +118,19 @@ namespace kinectwall
                 {
                     body.top.DrawNode((jn) =>
                     {
-                        Matrix4 worldMat =
-                            Matrix4.CreateTranslation(0, -1, 0) *
-                            Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f) *
-                            jn.WorldMat;
-                        Vector3 scale = worldMat.ExtractScale();
-                        worldMat = worldMat.ClearScale();
-                        BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(scale);
+                        Matrix4 worldMat = jn.WorldMat;
+                        Matrix4 meshTransform = Matrix4.CreateTranslation(0, -1, 0) *
+                            Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f);
+                        BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshTransform);
                         
-                        SimObjectMesh obj = new SimObjectMesh(worldMat, 1.0f, boneTM);
+                        SimObjectMesh obj = new SimObjectMesh(worldMat, 0.1f, boneTM);
                         obj.objectInfo = new MeshInfo()
                         {
                             color = new Vector3(
                             RandomNum(0.25f, 1),
                             RandomNum(0.25f, 1),
                             RandomNum(0.25f, 1)),
-                            scale = scale
+                            meshTransform = meshTransform
                         };
 
                         simObjects.Add(obj);
@@ -141,7 +141,14 @@ namespace kinectwall
 
             foreach (var kv in jointSims)
             {
-
+                if (kv.Key.Parent != null)
+                {
+                    SimObjectMesh soP = jointSims[kv.Key.Parent];                    
+                    Constraint c = new Constraint(soP, Vector3.Zero,
+                        kv.Value, new Vector3(0,
+                            -kv.Key.Parent.jointLength, 0));
+                    //simulation.AddConst(c);
+                }
             }
 
             foreach (var so in simObjects)
@@ -160,7 +167,7 @@ namespace kinectwall
                 program.Set3("meshColor", meshInfo.color);
 
                 program.Set3("lightPos", new Vector3(2, 5, 2));
-                Matrix4 matWorld = Matrix4.CreateScale(meshInfo.scale) *
+                Matrix4 matWorld = meshInfo.meshTransform *
                     obj.WorldMatrix;
                 Matrix4 matWorldViewProj = matWorld * viewProj;
                 program.SetMat4("uWorld", ref matWorld);

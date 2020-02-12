@@ -75,6 +75,13 @@ namespace kinectwall
         {
             
             p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
+            p2p.BreakingImpulseThreshold = 10.2f;
+        }
+
+        public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot)
+        {
+
+            p2p = new Point2PointConstraint(mesh1.Body, Utils.FromVector3(m1pivot));
         }
     }
 
@@ -115,12 +122,12 @@ namespace kinectwall
         public void AddConst(Constraint constraint)
         {
             constraints.Add(constraint);
-            colWorld.AddConstraint(constraint.C);
+            colWorld.AddConstraint(constraint.C, true);
         }
         public void Step()
         {
             var simulationTimestep = 1f / 60f;
-            colWorld.StepSimulation(simulationTimestep);
+            colWorld.StepSimulation(simulationTimestep, 10);
             foreach (var body in bodies)
             {
                 body.Refresh();

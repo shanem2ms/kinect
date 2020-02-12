@@ -7,6 +7,7 @@ in vec3 vTexCoord;
 void main()
 {
 	vec3 lightVec = normalize(vWsPos - lightPos);
+	float ambient = 0.3;
 	float lit = abs(dot(lightVec, vNormal));
-	gl_FragColor = vec4(meshColor * lit, 1);
+	gl_FragColor = vec4(meshColor * (lit * (1 - ambient) + ambient), 1);
 }

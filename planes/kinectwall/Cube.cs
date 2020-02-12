@@ -15,14 +15,14 @@ namespace kinectwall
     class Cube
     {
  
-        public static bs.TriangleMesh MakeBulletMesh(Vector3 scale)
+        public static bs.TriangleMesh MakeBulletMesh(Matrix4 transform)
         {
             bs.TriangleMesh bulletMesh = new bs.TriangleMesh();
             for (int i = 0; i < _Cube.Length; i += 3)
             {
-                bulletMesh.AddTriangle(Utils.FromVector3(_Cube[i] * scale),
-                    Utils.FromVector3(_Cube[i + 1] * scale),
-                    Utils.FromVector3(_Cube[i + 1] * scale));
+                bulletMesh.AddTriangle(Utils.FromVector3(Vector3.TransformPosition(_Cube[i], transform)),
+                    Utils.FromVector3(Vector3.TransformPosition(_Cube[i + 1], transform)),
+                    Utils.FromVector3(Vector3.TransformPosition(_Cube[i + 1], transform)));
             }
 
             return bulletMesh;
