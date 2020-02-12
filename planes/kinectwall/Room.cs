@@ -34,9 +34,8 @@ namespace kinectwall
             public Vector3 color;
             public Vector3 scale;
         }
-        public void Init(BulletSimulation simulation)
+        public void Init(BulletSimulation simulation, KinectData.Frame bodyFrame)
         {
-
             Vector3[] transvecs = new Vector3[6]
             {
                 Vector3.UnitX,
@@ -80,14 +79,12 @@ namespace kinectwall
                     scale = new Vector3(5, 0.1f, 5)
                 };
                 simObjects.Add(obj);
-                simulation.AddObj(obj);
             }
 
             BulletSharp.TriangleMesh smallcubes = Cube.MakeBulletMesh(new Vector3(0.1f, 0.1f, 0.1f));
             for (int i = 0; i < 64; ++i)
             {
                 Matrix4 matWorld =
-                    Matrix4.CreateScale(0.1f) *
                     Matrix4.CreateTranslation(new Vector3(
                         RandomNum(-5, 5),
                         RandomNum(0, 5),
@@ -108,7 +105,48 @@ namespace kinectwall
                     RandomNum(-v, v),
                     RandomNum(-v, v)));
                 simObjects.Add(obj);
-                simulation.AddObj(obj);
+            }
+
+            Dictionary<KinectData.JointNode, SimObjectMesh>
+                jointSims = new Dictionary<KinectData.JointNode, SimObjectMesh>();
+            foreach (var body in bodyFrame.bodies)
+            {
+                if (body != null)
+                {
+                    body.top.DrawNode((jn) =>
+                    {
+                        Matrix4 worldMat =
+                            Matrix4.CreateTranslation(0, -1, 0) *
+                            Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f) *
+                            jn.WorldMat;
+                        Vector3 scale = worldMat.ExtractScale();
+                        worldMat = worldMat.ClearScale();
+                        BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(scale);
+                        
+                        SimObjectMesh obj = new SimObjectMesh(worldMat, 1.0f, boneTM);
+                        obj.objectInfo = new MeshInfo()
+                        {
+                            color = new Vector3(
+                            RandomNum(0.25f, 1),
+                            RandomNum(0.25f, 1),
+                            RandomNum(0.25f, 1)),
+                            scale = scale
+                        };
+
+                        simObjects.Add(obj);
+                        jointSims.Add(jn, obj);
+                    });
+                }
+            }
+
+            foreach (var kv in jointSims)
+            {
+
+            }
+
+            foreach (var so in simObjects)
+            {
+                simulation.AddObj(so);
             }
         }
 

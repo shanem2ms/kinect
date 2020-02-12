@@ -17,16 +17,8 @@ namespace kinectwall
         public BodyViz(Program pickProgram)
         {
             program = Program.FromFiles("Body.vert", "Body.frag");
-            ushort[] indices = new ushort[_Cube.Length];
-            Vector3[] texCoords = new Vector3[_Cube.Length];
-            for (int i = 0; i < indices.Length; ++i)
-            {
-                indices[i] = (ushort)i;
-                int side = i / 6;
-                texCoords[i] = new Vector3((float)(side % 2), (float)(side / 3), 1);
-            }
-            vertexArray = new VertexArray(program, _Cube, indices, texCoords, null);
-            pickVA = new VertexArray(pickProgram, _Cube, indices, null, null);
+            vertexArray = Cube.MakeCube(program);
+            pickVA = Cube.MakeCube(pickProgram);
             this.pickProgram = pickProgram;
         }
 
@@ -42,8 +34,8 @@ namespace kinectwall
                     {
                         Matrix4 worldMat = jn.WorldMat;
                         Matrix4 matWorldViewProj = matWorldViewProj =
-                            Matrix4.CreateTranslation(-0.5f, -1, -0.5f) *
-                            Matrix4.CreateScale(0.01f * 2, jn.jointLength, 0.01f * 2) *
+                            Matrix4.CreateTranslation(0, 1, 0) *
+                            Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f) *
                             worldMat * viewProj;
                         pickProgram.Set4("pickColor", new Vector4((idx & 0xFF) / 255.0f, 
                             ((idx >> 8) & 0xFF) / 255.0f,
@@ -72,7 +64,7 @@ namespace kinectwall
                         program.Set1("opacity", 1.0f);
 
                         Matrix4 matWorldViewProj = 
-                            Matrix4.CreateTranslation(0, -0.5f, -0.5f) *
+                            Matrix4.CreateTranslation(1, 0, 0) *
                             Matrix4.CreateScale(0.05f, 0.004f, 0.004f) *
                             Matrix4.CreateTranslation(0, 0, 0) *
                             worldMat * viewProj;
@@ -81,7 +73,7 @@ namespace kinectwall
                         vertexArray.Draw();
 
                         matWorldViewProj = matWorldViewProj =
-                                Matrix4.CreateTranslation(-0.5f, 0, -0.5f) *
+                                Matrix4.CreateTranslation(0, 1, 0) *
                                 Matrix4.CreateScale(0.004f, 0.06f, 0.004f) *
                                 Matrix4.CreateTranslation(0, 0, 0) *
                                 worldMat * viewProj;
@@ -90,7 +82,7 @@ namespace kinectwall
                         vertexArray.Draw();
 
                         matWorldViewProj = matWorldViewProj =
-                                Matrix4.CreateTranslation(-0.5f, -0.5f, 0) *
+                                Matrix4.CreateTranslation(0, 0, 1) *
                                 Matrix4.CreateScale(0.004f, 0.004f, 0.06f) *
                                 Matrix4.CreateTranslation(0, 0, 0) *
                                 worldMat * viewProj;
@@ -105,8 +97,8 @@ namespace kinectwall
                             color = new Vector3(1.0f, 0, 0);
 
                         matWorldViewProj = matWorldViewProj =
-                            Matrix4.CreateTranslation(-0.5f, -1, -0.5f) *
-                            Matrix4.CreateScale(0.01f * 2, jn.jointLength, 0.01f * 2) *
+                            Matrix4.CreateTranslation(0, -1, 0) *
+                            Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f) *
                             worldMat * viewProj;
                         program.Set3("meshColor", color);
                         GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
@@ -115,75 +107,6 @@ namespace kinectwall
                 }
             }
         }
-
-
-        private static readonly Vector3[] _Cube = new Vector3[] {
-            new Vector3(0.0f, 0.0f, 0.0f),  // 0 
-            new Vector3(1.0f, 0.0f, 0.0f),  // 1
-            new Vector3(1.0f, 1.0f, 0.0f),  // 2
-
-            new Vector3(0.0f, 0.0f, 0.0f),  // 0 
-            new Vector3(1.0f, 1.0f, 0.0f),  // 2
-            new Vector3(0.0f, 1.0f, 0.0f),  // 3
-
-            new Vector3(0.0f, 0.0f, 1.0f),  // 4
-            new Vector3(1.0f, 0.0f, 1.0f),  // 5
-            new Vector3(1.0f, 1.0f, 1.0f),  // 6
-
-            new Vector3(0.0f, 0.0f, 1.0f),  // 4
-            new Vector3(1.0f, 1.0f, 1.0f),  // 6
-            new Vector3(0.0f, 1.0f, 1.0f),  // 7
-
-            new Vector3(0.0f, 0.0f, 0.0f),  // 0 
-            new Vector3(1.0f, 0.0f, 0.0f),  // 1
-            new Vector3(1.0f, 0.0f, 1.0f),  // 5
-
-            new Vector3(0.0f, 0.0f, 0.0f),  // 0 
-            new Vector3(1.0f, 0.0f, 1.0f),  // 5
-            new Vector3(0.0f, 0.0f, 1.0f),  // 4
-
-            new Vector3(1.0f, 1.0f, 0.0f),  // 2
-            new Vector3(0.0f, 1.0f, 0.0f),  // 3
-            new Vector3(0.0f, 1.0f, 1.0f),  // 7
-
-            new Vector3(1.0f, 1.0f, 0.0f),  // 2
-            new Vector3(0.0f, 1.0f, 1.0f),  // 7
-            new Vector3(1.0f, 1.0f, 1.0f),  // 6
-
-            new Vector3(0.0f, 0.0f, 0.0f),  // 0 
-            new Vector3(0.0f, 1.0f, 0.0f),  // 3
-            new Vector3(0.0f, 1.0f, 1.0f),  // 7
-
-            new Vector3(0.0f, 0.0f, 0.0f),  // 0 
-            new Vector3(0.0f, 1.0f, 1.0f),  // 7
-            new Vector3(0.0f, 0.0f, 1.0f),  // 4
-
-            new Vector3(1.0f, 0.0f, 0.0f),  // 1
-            new Vector3(1.0f, 1.0f, 0.0f),  // 2
-            new Vector3(1.0f, 1.0f, 1.0f),  // 6
-
-            new Vector3(1.0f, 0.0f, 0.0f),  // 1
-            new Vector3(1.0f, 1.0f, 1.0f),  // 6
-            new Vector3(1.0f, 0.0f, 1.0f),  // 5
-        };
-
-        private static readonly ushort[] _CubeIndices = new ushort[]
-        {
-            0, 1, 2,
-            0, 2, 3,
-            4, 5, 6,
-            4, 6, 7,
-
-            0, 1, 5,
-            0, 5, 4,
-            2, 3, 7,
-            2, 7, 6,
-
-            0, 3, 7,
-            0, 7, 4,
-            1, 2, 6,
-            2, 6, 5
-        };
     }
 
 }

@@ -65,6 +65,19 @@ namespace kinectwall
         public object objectInfo;
     }
 
+    class Constraint
+    {
+        Point2PointConstraint p2p;
+
+        public TypedConstraint C => p2p;
+        public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot,
+            SimObjectMesh mesh2, OpenTK.Vector3 m2pivot)
+        {
+            
+            p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
+        }
+    }
+
     class BulletSimulation
     {
         DefaultCollisionConfiguration colConfiguration = new DefaultCollisionConfiguration();
@@ -74,6 +87,7 @@ namespace kinectwall
         SequentialImpulseConstraintSolver solver;
 
         List<SimObjectMesh> bodies = new List<SimObjectMesh>();
+        List<Constraint> constraints = new List<Constraint>();
 
         public BulletSimulation()
         {
@@ -98,6 +112,11 @@ namespace kinectwall
             colWorld.AddCollisionObject(obj.Body);
         }
 
+        public void AddConst(Constraint constraint)
+        {
+            constraints.Add(constraint);
+            colWorld.AddConstraint(constraint.C);
+        }
         public void Step()
         {
             var simulationTimestep = 1f / 60f;

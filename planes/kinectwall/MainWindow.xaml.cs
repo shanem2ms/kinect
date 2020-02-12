@@ -148,8 +148,6 @@ namespace kinectwall
         {
             bulletSimulation = new BulletSimulation();
             pickProgram = GLObjects.Program.FromFiles("Pick.vert", "Pick.frag");
-            roomViz = new RoomViz();
-            roomViz.Init(bulletSimulation);
             if (App.DepthFile != null)
                 depthVid = new DepthVid();
             if (App.BodyFile != null)
@@ -262,10 +260,22 @@ namespace kinectwall
         bool live = false;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
-            bulletSimulation.Step();
-
             if (live && liveBodies == null)
                 liveBodies = new KinectBody();
+
+            if (live)
+                curFrame = liveBodies.CurrentFrame;
+            else
+                curFrame = bodyData?.GetInterpolatedFrame(bodyTimeStart +
+                    (frametime % bodyTimeLength));
+
+            if (roomViz == null)
+            {
+                roomViz = new RoomViz();
+                roomViz.Init(bulletSimulation, curFrame);
+            }
+            bulletSimulation.Step();
+
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
             GL.Clear(ClearBufferMask.DepthBufferBit);
@@ -284,15 +294,10 @@ namespace kinectwall
             long timeStamp = 0;
             if (depthVid != null)
                 timeStamp = depthVid.Render(viewProj);
-            if (live)
-                curFrame = liveBodies.CurrentFrame;
-            else
-                curFrame = bodyData?.GetInterpolatedFrame(bodyTimeStart +
-                    (frametime % bodyTimeLength));
             if (jtSelected > 0)
                 curFrame.SetJointColor(jtSelected, new Vector3(1, 1, 0));
-            if (curFrame != null && (visibleBits & 1) != 0)
-                bodyViz.Render(curFrame, viewProj);
+            //if (curFrame != null && (visibleBits & 1) != 0)
+            //    bodyViz.Render(curFrame, viewProj);
             if ((visibleBits & 2) != 0)
                 character.Render(curFrame, viewProj);
 
