@@ -104,18 +104,17 @@ namespace kinectwall
             {
                 yRot = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
                 xRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.001f;
-
-                Vector3 xd = Vector3.TransformNormal(Vector3.UnitX, rotMatrixDn).Normalized();
-                Vector3 yd = Vector3.TransformNormal(Vector3.UnitY, rotMatrixDn).Normalized();
-
-                Quaternion qy = new Quaternion(xd, yRot);
-                Quaternion qx = new Quaternion(yd, xRot);
-                Quaternion q = qy * qx;
-                Matrix4 rotdiff =
-                    Matrix4.CreateRotationX(xRot) *
-                    Matrix4.CreateRotationY(yRot);
-                this.rotMatrix = this.rotMatrixDn * rotdiff;
-
+                if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                {
+                    Matrix4 rotdiff =
+                        Matrix4.CreateRotationX(xRot) *
+                        Matrix4.CreateRotationY(yRot);
+                    this.rotMatrix = this.rotMatrixDn * rotdiff;
+                }
+                else if (e.Button == System.Windows.Forms.MouseButtons.Right)
+                {
+                    this.rotMatrix = this.rotMatrixDn * Matrix4.CreateRotationZ(yRot);
+                }
                 glControl.Invalidate();
             }
         }
@@ -276,7 +275,6 @@ namespace kinectwall
             }
             bulletSimulation.Step();
 
-
             GL.Clear(ClearBufferMask.ColorBufferBit);
             GL.Clear(ClearBufferMask.DepthBufferBit);
             GL.Enable(EnableCap.Blend);
@@ -290,6 +288,7 @@ namespace kinectwall
             this.viewMat = lookTrans.Inverted();
 
             Matrix4 viewProj = viewMat * projectionMat;
+
             roomViz.Render(viewProj);
             long timeStamp = 0;
             if (depthVid != null)
@@ -302,7 +301,9 @@ namespace kinectwall
                 character.Render(curFrame, viewProj);
 
             if (isPlaying) frametime += framerate;
-            
+
+            bulletSimulation.DrawDebug(viewProj);
+
             glControl.SwapBuffers();
 
         }

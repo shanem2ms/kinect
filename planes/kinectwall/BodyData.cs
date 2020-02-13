@@ -245,6 +245,8 @@ namespace KinectData
             Joint joint = jointPositions[jt];
             this.OrigWsOrientation = new Quaternion(joint.Orientation.X, joint.Orientation.Y, joint.Orientation.Z, joint.Orientation.W);
             this.OriginalWsPos = joint.Position;
+            if (OrigWsOrientation.LengthSquared == 0)
+                OrigWsOrientation = Quaternion.Identity;
             this.origRotMat = Matrix3.CreateFromQuaternion(this.OrigWsOrientation);
             this.Tracked = joint.TrackingState;
             Vector3 position = Vector3.TransformPosition(

@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using BulletSharp;
+﻿using BulletSharp;
 using BulletSharp.Math;
 using OpenTK;
+using System;
+using System.Collections.Generic;
 
 namespace kinectwall
 {
@@ -34,6 +31,11 @@ namespace kinectwall
         {
             return new BulletSharp.Math.Vector3(v3.X, v3.Y, v3.Z);
         }
+        
+        public static OpenTK.Vector3 FromBVector3(BulletSharp.Math.Vector3 v3)
+        {
+            return new OpenTK.Vector3(v3.X, v3.Y, v3.Z);
+        }
 
     }
     class SimObjectMesh
@@ -52,7 +54,7 @@ namespace kinectwall
                 new RigidBodyConstructionInfo(mass, new DefaultMotionState(
                     Utils.FromMat4(worldMatrix)), shape, inertia);
             body = new RigidBody(constructInfo);
-            
+
         }
 
         public void Refresh()
@@ -73,14 +75,13 @@ namespace kinectwall
         public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot,
             SimObjectMesh mesh2, OpenTK.Vector3 m2pivot)
         {
-            
+
             p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
-            p2p.BreakingImpulseThreshold = 10.2f;
+            //p2p.BreakingImpulseThreshold = 10.0f;
         }
 
         public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot)
         {
-
             p2p = new Point2PointConstraint(mesh1.Body, Utils.FromVector3(m1pivot));
         }
     }
@@ -95,6 +96,10 @@ namespace kinectwall
 
         List<SimObjectMesh> bodies = new List<SimObjectMesh>();
         List<Constraint> constraints = new List<Constraint>();
+        
+        public delegate void DebugDrawLineDel(ref Matrix4 viewProj, OpenTK.Vector3 from, OpenTK.Vector3 to, OpenTK.Vector3 color);
+        public DebugDrawLineDel DebugDrawLine = null;
+        Matrix4 viewProjDbg;
 
         public BulletSimulation()
         {
@@ -102,8 +107,14 @@ namespace kinectwall
             broadphase = new DbvtBroadphase();
             solver = new SequentialImpulseConstraintSolver();
             colWorld = new DiscreteDynamicsWorld(colDispatcher, broadphase, solver, colConfiguration);
+            colWorld.DebugDrawer = new DbgRenderer(this);
         }
 
+        public void DrawLine(ref BulletSharp.Math.Vector3 from, ref BulletSharp.Math.Vector3 to, ref BulletSharp.Math.Vector3 color)
+        {
+            if (DebugDrawLine != null)
+                DebugDrawLine(ref viewProjDbg, Utils.FromBVector3(from), Utils.FromBVector3(to), Utils.FromBVector3(color));
+        }
 
         public void Init()
         {
@@ -124,6 +135,13 @@ namespace kinectwall
             constraints.Add(constraint);
             colWorld.AddConstraint(constraint.C, true);
         }
+
+
+        public void DrawDebug(Matrix4 viewProj)
+        {
+            viewProjDbg = viewProj;
+            colWorld.DebugDrawWorld();
+        }
         public void Step()
         {
             var simulationTimestep = 1f / 60f;
@@ -132,6 +150,31 @@ namespace kinectwall
             {
                 body.Refresh();
             }
+        }        
+    }
+
+    class DbgRenderer : DebugDraw
+    {
+
+        BulletSimulation pthis;
+        public DbgRenderer(BulletSimulation bs)
+        {
+            pthis = bs;
+        }
+        public override DebugDrawModes DebugMode { get; set; } = DebugDrawModes.DrawConstraints | DebugDrawModes.DrawConstraintLimits;
+
+        public override void Draw3DText(ref BulletSharp.Math.Vector3 location, string textString)
+        {
+        }
+
+        public override void DrawLine(ref BulletSharp.Math.Vector3 from, ref BulletSharp.Math.Vector3 to, ref BulletSharp.Math.Vector3 color)
+        {
+            pthis.DrawLine(ref from, ref to, ref color);
+        }
+
+        public override void ReportErrorWarning(string warningString)
+        {
+            System.Diagnostics.Debug.WriteLine(warningString);
         }
     }
 }

@@ -15,14 +15,14 @@ namespace kinectwall
     class Cube
     {
  
-        public static bs.TriangleMesh MakeBulletMesh(Matrix4 transform)
+        public static bs.TriangleMesh MakeBulletMesh(Vector3 scale)
         {
             bs.TriangleMesh bulletMesh = new bs.TriangleMesh();
             for (int i = 0; i < _Cube.Length; i += 3)
             {
-                bulletMesh.AddTriangle(Utils.FromVector3(Vector3.TransformPosition(_Cube[i], transform)),
-                    Utils.FromVector3(Vector3.TransformPosition(_Cube[i + 1], transform)),
-                    Utils.FromVector3(Vector3.TransformPosition(_Cube[i + 1], transform)));
+                bulletMesh.AddTriangle(Utils.FromVector3(_Cube[i] * scale),
+                    Utils.FromVector3(_Cube[i + 1] * scale),
+                    Utils.FromVector3(_Cube[i + 1] * scale));
             }
 
             return bulletMesh;
@@ -51,6 +51,19 @@ namespace kinectwall
                 Vector3.UnitY
             };
 
+
+            Vector3[] nrmCoords = new Vector3[_Cube.Length];
+            for (int i = 0; i < 6; ++i)
+            {
+                Vector3 d1 = _Cube[i * 6 + 1] - _Cube[i * 6];
+                Vector3 d2 = _Cube[i * 6 + 2] - _Cube[i * 6 + 1];
+                Vector3 nrm = Vector3.Cross(d1, d2).Normalized();
+                for (int nIdx = 0; nIdx < 6; ++nIdx)
+                {
+                    nrmCoords[i * 6 + nIdx] = nrm;
+                }
+            }
+
             for (int i = 0; i < indices.Length; ++i)
             {
                 indices[i] = (ushort)i;
@@ -61,7 +74,7 @@ namespace kinectwall
                     Vector3.Dot(_Cube[i], ydir), (float)sideIdx / 6.0f);
             }
 
-            return new VertexArray(program, _Cube, indices, texCoords, null);
+            return new VertexArray(program, _Cube, indices, texCoords, nrmCoords);
         }
 
 
