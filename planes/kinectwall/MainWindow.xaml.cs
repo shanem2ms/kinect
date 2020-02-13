@@ -64,7 +64,8 @@ namespace kinectwall
         Tools currentTool = Tools.Camera;
         public string[] ToolNames { get => Enum.GetNames(typeof(Tools)); }
 
-        public string[] BulletDebugDraw { get => Enum.GetNames(typeof(BulletSharp.DebugDrawModes)); }
+        BulletDebugDraw[] bulletDebugDraw;
+        public BulletDebugDraw[] BulletDraw { get => bulletDebugDraw; }
 
         DepthVid depthVid = null;
 
@@ -73,6 +74,12 @@ namespace kinectwall
         /// </summary>
         public MainWindow()
         {
+
+            BulletSharp.DebugDrawModes[] dmodes = (BulletSharp.DebugDrawModes[])Enum.GetValues(typeof(BulletSharp.DebugDrawModes));
+            bulletDebugDraw =
+                dmodes.Select(dm => new BulletDebugDraw() { debugDrawMode = dm, 
+                    OnCheckedChanged = OnBulletDebugCheckChange
+                }).ToArray();
             // get size of joint space
             this.displayWidth = 1024;
             this.displayHeight = 768;
@@ -82,6 +89,22 @@ namespace kinectwall
 
             // initialize the components (controls) of the window
             this.InitializeComponent();
+        }
+
+
+        void OnBulletDebugCheckChange(BulletDebugDraw bdd)
+        {
+            if (bdd.IsChecked)
+                bulletSimulation.DebugDraw |= bdd.debugDrawMode;
+            else
+            {
+                bulletSimulation.DebugDraw &= ~bdd.debugDrawMode;
+            }
+
+            foreach (BulletDebugDraw bddc in bulletDebugDraw)
+            {
+                bddc.SetFromMask(bulletSimulation.DebugDraw);
+            }
         }
 
         System.Drawing.Point? mouseDownPt;
@@ -406,13 +429,54 @@ namespace kinectwall
         {
             isPlaying = !isPlaying;
             if (depthVid != null) depthVid.isPlaying = !depthVid.isPlaying;
-            
+
         }
 
         private void fwdBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!isPlaying) frametime += framerate;
             else frametime -= new TimeSpan(0, 0, 0, 30).Ticks;
+        }
+    }
+
+    public class BaseNotifier : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        // Create the OnPropertyChanged method to raise the event
+        protected void OnPropertyChanged(string name)
+        {
+            PropertyChangedEventHandler handler = PropertyChanged;
+            if (handler != null)
+            {
+                handler(this, new PropertyChangedEventArgs(name));
+            }
+        }
+    }
+    public class BulletDebugDraw : BaseNotifier
+    {
+        public BulletSharp.DebugDrawModes debugDrawMode;
+
+        public delegate void OnCheckedChangedDel(BulletDebugDraw itm);
+        public OnCheckedChangedDel OnCheckedChanged;
+
+        public void SetFromMask(BulletSharp.DebugDrawModes mask)
+        {
+            this.isChecked = ((mask & debugDrawMode) != 0);
+            OnPropertyChanged("IsChecked");
+        }
+
+        public string Name { get => debugDrawMode.ToString(); }
+
+        bool isChecked = false;
+        public bool IsChecked
+        {
+            get => isChecked; 
+            set
+            {
+                isChecked = value;
+                OnCheckedChanged?.Invoke(this);
+            }
         }
     }
 }

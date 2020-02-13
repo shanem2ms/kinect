@@ -52,18 +52,28 @@ namespace kinectwall
             shape.CalculateLocalInertia(mass, out inertia);
             RigidBodyConstructionInfo constructInfo =
                 new RigidBodyConstructionInfo(mass, new DefaultMotionState(
-                    Utils.FromMat4(worldMatrix)), shape, inertia);
+                    Utils.FromMat4(worldMatrix)), shape, inertia);            
             body = new RigidBody(constructInfo);
-            body.SetDamping(1f, 1f);
+            body.SetDamping(0.3f, 0.3f);
+        }
 
+        public void AfterWorldAdd()
+        {
+            //System.Diagnostics.Debug.WriteLine($"{body.BroadphaseProxy.CollisionFilterGroup} .. {body.BroadphaseProxy.CollisionFilterMask}");
+            if (CollisionGroup >= 0)
+            {
+                body.BroadphaseProxy.CollisionFilterGroup = CollisionGroup;
+                body.BroadphaseProxy.CollisionFilterMask = (int)CollisionFilterGroups.StaticFilter;
+            }
         }
 
         public void Refresh()
         {
             worldMatrix = Utils.FromMat(body.WorldTransform);
         }
-        public Matrix4 WorldMatrix => worldMatrix;
 
+        public int CollisionGroup { get; set; } = -1;
+        public Matrix4 WorldMatrix => worldMatrix;
         public RigidBody Body => body;
         public object objectInfo;
     }
@@ -93,7 +103,14 @@ namespace kinectwall
         CollisionDispatcher colDispatcher;
         DbvtBroadphase broadphase;
         DiscreteDynamicsWorld colWorld;
-        SequentialImpulseConstraintSolver solver;
+        ConstraintSolver solver;
+
+        DebugDrawModes debugDraw;
+        public DebugDrawModes DebugDraw { get => debugDraw; set
+            {
+                debugDraw = value;
+
+            } }
 
         List<SimObjectMesh> bodies = new List<SimObjectMesh>();
         List<Constraint> constraints = new List<Constraint>();
@@ -106,7 +123,7 @@ namespace kinectwall
         {
             colDispatcher = new CollisionDispatcher(colConfiguration);
             broadphase = new DbvtBroadphase();
-            solver = new SequentialImpulseConstraintSolver();
+            solver = new NncgConstraintSolver();
             colWorld = new DiscreteDynamicsWorld(colDispatcher, broadphase, solver, colConfiguration);
             colWorld.DebugDrawer = new DbgRenderer(this);            
         }
@@ -119,16 +136,13 @@ namespace kinectwall
 
         public void Init()
         {
-            foreach (var body in bodies)
-            {
-                colWorld.AddCollisionObject(body.Body);
-            }
         }
 
         public void AddObj(SimObjectMesh obj)
         {
             bodies.Add(obj);
             colWorld.AddCollisionObject(obj.Body);
+            obj.AfterWorldAdd();
         }
 
         public void AddConst(Constraint constraint)
@@ -162,7 +176,7 @@ namespace kinectwall
         {
             pthis = bs;
         }
-        public override DebugDrawModes DebugMode { get; set; } = DebugDrawModes.All;
+        public override DebugDrawModes DebugMode { get => pthis.DebugDraw; set => pthis.DebugDraw = value; }
 
         public override void Draw3DText(ref BulletSharp.Math.Vector3 location, string textString)
         {

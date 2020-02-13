@@ -160,9 +160,9 @@ namespace kinectwall
 
                         float mass = (jn.jt == KinectData.JointType.HandLeft ||
                         jn.jt == KinectData.JointType.HandRight ||
-                        jn.jt == KinectData.JointType.Head) ? 0 : 0.2f;
+                        jn.jt == KinectData.JointType.Head) ? 0.2f : 0.2f;
                         SimObjectMesh obj = new SimObjectMesh(worldMat, mass, boneTM);
-
+                        obj.CollisionGroup = 64;
                         float r = RandomNum(0, 1);
                         float g = RandomNum(0, 1);
                         float b = RandomNum(0, 1);
