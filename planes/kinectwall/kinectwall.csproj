@@ -90,7 +90,7 @@
     <Compile Include="DepthVid.cs" />
     <Compile Include="GLMesh.cs" />
     <Compile Include="KinectBody.cs" />
-    <Compile Include="Room.cs" />
+    <Compile Include="Scene.cs" />
     <Page Include="KinectWall.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
