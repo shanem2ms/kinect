@@ -47,7 +47,7 @@ namespace kinectwall
         /// </summary>
         private int displayHeight;
 
-        RoomViz roomViz = null;
+        Scene scene = null;
         BodyViz bodyViz = null;
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
@@ -181,7 +181,11 @@ namespace kinectwall
                 bodyTimeStart = tr.Item1;
                 bodyTimeLength = tr.Item2 - bodyTimeStart;
             }
-            bodyViz = new BodyViz(pickProgram);
+
+            if (scene == null)
+                scene = new Scene(pickProgram);
+
+            //bodyViz = new BodyViz(pickProgram);
 
             if (App.CharacterFile != null)
                 character = new CharViz(App.CharacterFile);
@@ -293,11 +297,11 @@ namespace kinectwall
                 curFrame = bodyData?.GetInterpolatedFrame(bodyTimeStart +
                     (frametime % bodyTimeLength));
 
-            if (roomViz == null)
-            {
-                roomViz = new RoomViz();
-                roomViz.Init(bulletSimulation, curFrame);
-            }
+            if (!scene.IsInitialized)
+                scene.Init(bulletSimulation, curFrame);
+            else
+                scene.SetBodyFrame(curFrame);
+
             bulletSimulation.Step();
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
@@ -314,7 +318,7 @@ namespace kinectwall
 
             Matrix4 viewProj = viewMat * projectionMat;
 
-            roomViz.Render(viewProj);
+            scene.Render(viewProj);
             long timeStamp = 0;
             if (depthVid != null)
                 timeStamp = depthVid.Render(viewProj);
@@ -344,6 +348,10 @@ namespace kinectwall
                     KinectData.JointNode jn = SelectedObject as KinectData.JointNode;
                     SelectionId.Content = jn.jt.ToString();
                 }
+                else 
+                {
+                    SelectionId.Content = SelectedObject.ToString();
+                }
             }
             else
                 SelectionId.Content = "";
@@ -362,8 +370,12 @@ namespace kinectwall
 
             GL.UseProgram(pickProgram.ProgramName);
             int idxOffset = 50;
-            if (curFrame != null && (visibleBits & 1) != 0)
-                bodyViz.Pick(curFrame, viewProj, pickObjects, idxOffset);
+            if (curFrame != null)
+            {
+                if (bodyViz != null)
+                    bodyViz.Pick(curFrame, viewProj, pickObjects, idxOffset);
+                scene.Pick(curFrame, viewProj, pickObjects, idxOffset);
+            }
 
             if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))
                 pixels = new GLPixel[glControl.Width * glControl.Height];

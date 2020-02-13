@@ -64,6 +64,7 @@ namespace kinectwall
             {
                 body.BroadphaseProxy.CollisionFilterGroup = CollisionGroup;
                 body.BroadphaseProxy.CollisionFilterMask = (int)CollisionFilterGroups.StaticFilter;
+                body.Gravity = new BulletSharp.Math.Vector3(0);
             }
         }
 
@@ -72,16 +73,29 @@ namespace kinectwall
             worldMatrix = Utils.FromMat(body.WorldTransform);
         }
 
+        public void SetTransform(Matrix4 t)
+        {            
+            body.WorldTransform =
+                Utils.FromMat4(worldMatrix);
+        }
+
         public int CollisionGroup { get; set; } = -1;
         public Matrix4 WorldMatrix => worldMatrix;
         public RigidBody Body => body;
         public object objectInfo;
+
+        public override string ToString()
+        {
+            return objectInfo != null ? objectInfo.ToString() :
+                body.ToString();
+        }
     }
 
     class Constraint
     {
         Point2PointConstraint p2p;
 
+        SimObjectMesh pinnedBody;
         public TypedConstraint C => p2p;
         public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot,
             SimObjectMesh mesh2, OpenTK.Vector3 m2pivot)
@@ -93,8 +107,20 @@ namespace kinectwall
 
         public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot)
         {
+            pinnedBody = mesh1;
+            pinnedBody.Body.ActivationState = ActivationState.DisableDeactivation;
             p2p = new Point2PointConstraint(mesh1.Body, Utils.FromVector3(m1pivot));
+            p2p.Setting.ImpulseClamp = 30.0f;
+            p2p.Setting.Tau = 0.001f;
         }
+
+        public void UpdateWsPos(OpenTK.Vector3 wspos)
+        {
+            //OpenTK.Vector3 lPos = OpenTK.Vector3.TransformPosition(wspos, pinnedBody.WorldMatrix.Inverted());
+            p2p.PivotInB = Utils.FromVector3(wspos);
+        }
+
+        public bool Enabled { get => p2p.IsEnabled; set { p2p.IsEnabled = value; } }
     }
 
     class BulletSimulation
@@ -160,7 +186,7 @@ namespace kinectwall
         public void Step()
         {
             var simulationTimestep = 1f / 60f;
-            colWorld.StepSimulation(simulationTimestep, 1);
+            colWorld.StepSimulation(simulationTimestep, 10);
             foreach (var body in bodies)
             {
                 body.Refresh();

@@ -9,17 +9,24 @@ using GLObjects;
 
 namespace kinectwall
 {
-    class RoomViz
+    class Scene
     {
         private Program program;
+        private Program pickProgram;
         private VertexArray vertexArray;
+        private VertexArray vertexArrayPick;
+        public bool IsInitialized = false;
 
         List<SimObjectMesh> simObjects = new List<SimObjectMesh>();
+        Dictionary<KinectData.JointType, Constraint> bodyDraggers
+            = new Dictionary<KinectData.JointType, Constraint>();
 
-        public RoomViz()
+        public Scene(Program _pickProgram)
         {
-            program = Program.FromFiles("Room.vert", "Room.frag");
+            program = Program.FromFiles("Main.vert", "Main.frag");
+            pickProgram = _pickProgram;
             vertexArray = Cube.MakeCube(program);
+            vertexArrayPick = Cube.MakeCube(pickProgram);
         }
 
         Random r = new Random();
@@ -33,10 +40,18 @@ namespace kinectwall
         {
             public Vector3 color;
             public Vector3 scale;
+            public string name;
+
+            public override string ToString()
+            {
+                return name;
+            }
         }
 
         class ConstraintDef
         {
+            public KinectData.JointType jt;
+            public bool isTwoBodies = true;
             public SimObjectMesh node1;
             public Vector3 localPivot1;
             public SimObjectMesh node2;
@@ -136,7 +151,8 @@ namespace kinectwall
                     obj.objectInfo = new MeshInfo()
                     {
                         color = wallcolors[i],
-                        scale = meshScale
+                        scale = meshScale,
+                        name = $"wall{i}"
                     };
                     simObjects.Add(obj);
                 }
@@ -158,10 +174,7 @@ namespace kinectwall
                         Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
                         BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
 
-                        float mass = (jn.jt == KinectData.JointType.HandLeft ||
-                        jn.jt == KinectData.JointType.HandRight ||
-                        jn.jt == KinectData.JointType.Head) ? 0.2f : 0.2f;
-                        SimObjectMesh obj = new SimObjectMesh(worldMat, mass, boneTM);
+                        SimObjectMesh obj = new SimObjectMesh(worldMat, 0.2f, boneTM);
                         obj.CollisionGroup = 64;
                         float r = RandomNum(0, 1);
                         float g = RandomNum(0, 1);
@@ -169,7 +182,8 @@ namespace kinectwall
                         obj.objectInfo = new MeshInfo()
                         {
                             color = new Vector3(r,g,b),
-                            scale = meshScale
+                            scale = meshScale,
+                            name = jn.jt.ToString()
                         };
 
                         simObjects.Add(obj);
@@ -189,28 +203,23 @@ namespace kinectwall
                                 node2 = parentObj,
                                 localPivot2 = parentLocalPivot
                             });
-
-
-                            /*
-                            
-                            worldMat =
-                                Matrix4.CreateTranslation(parentLocalPivot) *
-                                jn.Parent.WorldMat;
-                            meshScale = new Vector3(0.01f, 0.01f, 0.01f);
-                            boneTM = Cube.MakeBulletMesh(meshScale);
-
-                            obj = new SimObjectMesh(worldMat, 0, boneTM);
-                            obj.objectInfo = new MeshInfo()
-                            {
-                                color = new Vector3(
-                                r * 2, g * 2, b * 2),
-                                scale = meshScale
-                            };
-
-                            simObjects.Add(obj);*/
                         }
 
 
+                        /*if (jn.jt == KinectData.JointType.HandLeft ||
+                            jn.jt == KinectData.JointType.HandRight ||
+                            jn.jt == KinectData.JointType.FootLeft ||
+                            jn.jt == KinectData.JointType.FootRight ||
+                            jn.jt == KinectData.JointType.Head)*/
+                        {
+                            constraints.Add(new ConstraintDef()
+                            {
+                                isTwoBodies = false,
+                                jt = jn.jt,
+                                node1 = obj,
+                                localPivot1 = Vector3.Zero
+                            });
+                        }
 
                     });
                 }
@@ -223,10 +232,52 @@ namespace kinectwall
             
             foreach (var con in constraints)
             {
-                simulation.AddConst(new Constraint(
-                    con.node1, con.localPivot1,
-                    con.node2, con.localPivot2));
+                if (con.isTwoBodies)
+                {
+                    simulation.AddConst(new Constraint(
+                        con.node1, con.localPivot1,
+                        con.node2, con.localPivot2));
+                }
+                else
+                {
+                    Constraint c = new Constraint(
+                        con.node1, con.localPivot1);
+                    bodyDraggers.Add(con.jt, c);
+                    simulation.AddConst(c);
+                }
             }
+
+
+            IsInitialized = true;
+        }
+
+        public void SetBodyFrame(KinectData.Frame bodyFrame)
+        {
+            foreach (var body in bodyFrame.bodies)
+            {
+                if (body != null)
+                {
+                    body.top.DrawNode((jn) =>
+                    {
+                        Constraint constraint;
+                        if (bodyDraggers.TryGetValue(jn.jt, out constraint))
+                        {
+                            Matrix4 worldMat =
+                                Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                                jn.WorldMat;
+                            if (jn.Tracked == KinectData.TrackingState.Tracked)
+                            {
+                                constraint.Enabled = true;
+                                constraint.UpdateWsPos(worldMat.ExtractTranslation());
+                            }
+                            else
+                                constraint.Enabled = false;
+                        }                    
+
+                    });
+                }
+            }
+
         }
 
         public void Render(Matrix4 viewProj)
@@ -255,5 +306,27 @@ namespace kinectwall
                 vertexArray.Draw();
             }
         }
+
+        public void Pick(KinectData.Frame frame, Matrix4 viewProj,
+            List<object> pickObjects, int offset)
+        {
+            int idx = offset;
+            foreach (SimObjectMesh obj in simObjects)
+            {
+                MeshInfo meshInfo = obj.objectInfo as MeshInfo;
+                Matrix4 matWorld = Matrix4.CreateScale(meshInfo.scale) *
+                    obj.WorldMatrix;
+                Matrix4 matWorldViewProj = matWorld * viewProj;
+                pickProgram.Set4("pickColor", new Vector4((idx & 0xFF) / 255.0f,
+                    ((idx >> 8) & 0xFF) / 255.0f,
+                    ((idx >> 16) & 0xFF) / 255.0f,
+                    1));
+                GL.UniformMatrix4(pickProgram.LocationMVP, false, ref matWorldViewProj);
+                vertexArray.Draw();
+                pickObjects.Add(obj);
+                idx++;
+            }
+        }
+
     }
 }
