@@ -157,7 +157,7 @@ namespace kinectwall
                             jn.WorldMat;
                         Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
                         BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
-                        
+
                         float mass = (jn.jt == KinectData.JointType.HandLeft ||
                         jn.jt == KinectData.JointType.HandRight ||
                         jn.jt == KinectData.JointType.Head) ? 0 : 0.2f;

@@ -245,19 +245,27 @@ namespace KinectData
             Joint joint = jointPositions[jt];
             this.OrigWsOrientation = new Quaternion(joint.Orientation.X, joint.Orientation.Y, joint.Orientation.Z, joint.Orientation.W);
             this.OriginalWsPos = joint.Position;
-            if (OrigWsOrientation.LengthSquared == 0)
-                OrigWsOrientation = Quaternion.Identity;
             this.origRotMat = Matrix3.CreateFromQuaternion(this.OrigWsOrientation);
             this.Tracked = joint.TrackingState;
             Vector3 position = Vector3.TransformPosition(
                 joint.Position, wInv);
 
-            Vector3 jointDir = position.Normalized();
-            Matrix3 localRot =
-                this.origRotMat * parentRot.Inverted();
-            
-            this.localMat = new Matrix4(localRot) *
-                Matrix4.CreateTranslation(position);
+            if (OrigWsOrientation.LengthSquared == 0)
+            {
+                Vector3 jointDir = position.Normalized();
+                Vector3 xDir = Vector3.Cross(jointDir, Vector3.UnitZ);
+                Vector3 zDir = Vector3.Cross(xDir, jointDir);
+                Matrix3 matrix3 = new Matrix3(xDir, jointDir, zDir);
+                this.localMat = new Matrix4(matrix3) *
+                    Matrix4.CreateTranslation(position);
+            }
+            else
+            {
+                Matrix3 localRot =
+                    this.origRotMat * parentRot.Inverted();
+                this.localMat = new Matrix4(localRot) *
+                    Matrix4.CreateTranslation(position);
+            }
 
             Matrix4 worldMat = localMat * parentWorldMat;
 

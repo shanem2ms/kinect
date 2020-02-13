@@ -64,6 +64,8 @@ namespace kinectwall
         Tools currentTool = Tools.Camera;
         public string[] ToolNames { get => Enum.GetNames(typeof(Tools)); }
 
+        public string[] BulletDebugDraw { get => Enum.GetNames(typeof(BulletSharp.DebugDrawModes)); }
+
         DepthVid depthVid = null;
 
         /// <summary>

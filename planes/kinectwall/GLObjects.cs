@@ -201,11 +201,25 @@ namespace GLObjects
         }
     }
     
-    public class TextureFloat : IDisposable
+    public class Texture : IDisposable
+    {
+        public readonly int TextureName;
+
+        protected Texture()
+        {
+            TextureName = GL.GenTexture();
+        }
+
+        public void Dispose()
+        {
+            GL.DeleteTexture(TextureName);
+        }
+    }
+
+    public class TextureFloat : Texture
     {
         public TextureFloat()
         {
-            TextureName = GL.GenTexture();
         }
         public void LoadDepthFrame(int width, int height, byte []data)
         {
@@ -222,25 +236,25 @@ namespace GLObjects
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureBorderColor, new float[] { 0, 0, 0 });
         }
 
-        public readonly int TextureName;
         public void BindToIndex(int idx)
         {
             GL.ActiveTexture(TextureUnit.Texture0 + idx);
             GL.BindTexture(TextureTarget.Texture2D, TextureName);
         }
 
-        public void Dispose()
-        {
-            GL.DeleteTexture(TextureName);
-        }
     }
 
-    public class TextureRgba : IDisposable
+    public class TextureRgba : Texture
     {
         public TextureRgba()
         {
-            TextureName = GL.GenTexture();
         }
+
+        public void Create(int width, int height)
+        {
+            LoadData(width, height, IntPtr.Zero);
+        }
+
         public void LoadData(int width, int height, IntPtr data)
         {
             GL.ActiveTexture(TextureUnit.Texture0);
@@ -256,16 +270,64 @@ namespace GLObjects
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureBorderColor, new float[] { 0, 0, 0 });
         }
 
-        public readonly int TextureName;
         public void BindToIndex(int idx)
         {
             GL.ActiveTexture(TextureUnit.Texture0 + idx);
             GL.BindTexture(TextureTarget.Texture2D, TextureName);
         }
+    }
+
+    public class DepthBuffer : IDisposable
+    {
+        public DepthBuffer()
+        {
+            RenderBufferName = GL.GenRenderbuffer();
+        }
+
+        public void Create(int width, int height)
+        {
+            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, RenderBufferName);
+            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferInternalFormat.DepthComponent32f,
+                width, height);
+        }
+
+        public readonly int RenderBufferName;
+        public void Bind()
+        {
+            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, RenderBufferName);
+        }
 
         public void Dispose()
         {
-            GL.DeleteTexture(TextureName);
+            GL.DeleteRenderbuffer(RenderBufferName);
+        }
+
+    }
+
+    public class FrameBuffer
+    {
+        public readonly int FrameBufferName;
+        public FrameBuffer()
+        {
+            FrameBufferName = GL.GenFramebuffer();
+        }
+
+        public void Create(Texture[] textures, DepthBuffer db)
+        {
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, FrameBufferName);
+            GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
+                RenderbufferTarget.Renderbuffer, db.RenderBufferName);
+
+            DrawBufferMode[] drawBuffers = new DrawBufferMode[textures.Length];
+            for (int i = 0; i < textures.Length; ++i)
+            {
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.ColorAttachment0 + i, TextureTarget2d.Texture2D, textures[i].TextureName, 0);
+                drawBuffers[i] = DrawBufferMode.ColorAttachment0 + i;
+            }
+
+            GL.DrawBuffers(textures.Length, drawBuffers);
+            FramebufferErrorCode errorCode = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
         }
     }
 

@@ -54,6 +54,7 @@ namespace kinectwall
                 new RigidBodyConstructionInfo(mass, new DefaultMotionState(
                     Utils.FromMat4(worldMatrix)), shape, inertia);
             body = new RigidBody(constructInfo);
+            body.SetDamping(1f, 1f);
 
         }
 
@@ -107,7 +108,7 @@ namespace kinectwall
             broadphase = new DbvtBroadphase();
             solver = new SequentialImpulseConstraintSolver();
             colWorld = new DiscreteDynamicsWorld(colDispatcher, broadphase, solver, colConfiguration);
-            colWorld.DebugDrawer = new DbgRenderer(this);
+            colWorld.DebugDrawer = new DbgRenderer(this);            
         }
 
         public void DrawLine(ref BulletSharp.Math.Vector3 from, ref BulletSharp.Math.Vector3 to, ref BulletSharp.Math.Vector3 color)
@@ -145,7 +146,7 @@ namespace kinectwall
         public void Step()
         {
             var simulationTimestep = 1f / 60f;
-            colWorld.StepSimulation(simulationTimestep, 10);
+            colWorld.StepSimulation(simulationTimestep, 1);
             foreach (var body in bodies)
             {
                 body.Refresh();
@@ -161,7 +162,7 @@ namespace kinectwall
         {
             pthis = bs;
         }
-        public override DebugDrawModes DebugMode { get; set; } = DebugDrawModes.DrawConstraints | DebugDrawModes.DrawConstraintLimits;
+        public override DebugDrawModes DebugMode { get; set; } = DebugDrawModes.All;
 
         public override void Draw3DText(ref BulletSharp.Math.Vector3 location, string textString)
         {
