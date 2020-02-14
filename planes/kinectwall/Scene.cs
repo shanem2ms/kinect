@@ -258,6 +258,9 @@ namespace kinectwall
 
         public void SetBodyFrame(KinectData.Frame bodyFrame)
         {
+            if (bodyFrame == null)
+                return;
+
             foreach (var body in bodyFrame.bodies)
             {
                 if (body != null)

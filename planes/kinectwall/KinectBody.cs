@@ -4,6 +4,7 @@ using System.Linq;
 using System.IO;
 using OpenTK;
 using Microsoft.Kinect;
+using Microsoft.Kinect.Face;
 using kd = KinectData;
 
 namespace kinectwall
@@ -12,6 +13,10 @@ namespace kinectwall
     {
         KinectSensor kinectSensor;
         BodyFrameReader bodyFrameReader;
+        // The face frame source
+        FaceFrameSource _faceSource = null;
+        FaceFrameReader _faceReader = null;
+
         public KinectBody()
         {
             // one sensor is currently supported
@@ -24,6 +29,26 @@ namespace kinectwall
             this.kinectSensor.Open();
 
             this.bodyFrameReader.FrameArrived += BodyFrameReader_FrameArrived;
+
+
+
+            // Initialize the face source with the desired features
+            _faceSource = new FaceFrameSource(this.kinectSensor, 0,
+                                                          FaceFrameFeatures.PointsInInfraredSpace |
+                                                          FaceFrameFeatures.BoundingBoxInColorSpace |
+                                                          FaceFrameFeatures.FaceEngagement |
+                                                          FaceFrameFeatures.Glasses |
+                                                          FaceFrameFeatures.Happy |
+                                                          FaceFrameFeatures.LeftEyeClosed |
+                                                          FaceFrameFeatures.MouthOpen |
+                                                          FaceFrameFeatures.PointsInColorSpace |
+                                                          FaceFrameFeatures.RightEyeClosed);
+            _faceReader = _faceSource.OpenReader();
+            _faceReader.FrameArrived += _faceReader_FrameArrived;
+        }
+
+        private void _faceReader_FrameArrived(object sender, FaceFrameArrivedEventArgs e)
+        {
         }
 
         long timeStamp;

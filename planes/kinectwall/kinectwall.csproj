@@ -181,6 +181,9 @@
     <PackageReference Include="Microsoft.Kinect">
       <Version>2.0.1410.19000</Version>
     </PackageReference>
+    <PackageReference Include="Microsoft.Kinect.Face.x64">
+      <Version>2.0.1410.19000</Version>
+    </PackageReference>
     <PackageReference Include="OpenGL.Net">
       <Version>0.8.4</Version>
     </PackageReference>
