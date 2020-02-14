@@ -176,12 +176,17 @@ namespace kinectwall
 
                         SimObjectMesh obj = new SimObjectMesh(worldMat, 0.2f, boneTM);
                         obj.CollisionGroup = 64;
-                        float r = RandomNum(0, 1);
-                        float g = RandomNum(0, 1);
-                        float b = RandomNum(0, 1);
+                        Vector3 vecjoint = KinectData.PoseData.JointVals[(int)jn.jt];
+
+                        Vector3 lrColor = new Vector3(0.5f, 0.5f, 0.5f);
+                        if (vecjoint.X > 0)
+                            lrColor = new Vector3(0, 1, 0);
+                        else if (vecjoint.X < 0)
+                            lrColor = new Vector3(1, 0, 0);
+
                         obj.objectInfo = new MeshInfo()
                         {
-                            color = new Vector3(r,g,b),
+                            color = lrColor,
                             scale = meshScale,
                             name = jn.jt.ToString()
                         };

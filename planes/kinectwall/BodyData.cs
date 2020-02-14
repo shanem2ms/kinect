@@ -75,7 +75,9 @@ namespace KinectData
                                 readPtr += sizeof(float);
                             }
 
-                            frame.bodies[i].joints.Add(jt, new Joint() { Position = new Vector3(posvals[0], posvals[1], posvals[2]),
+                            frame.bodies[i].joints.Add(jt, new Joint()
+                            {
+                                Position = new Vector3(posvals[0], posvals[1], posvals[2]),
                                 Orientation = new Vector4(rotvals[0], rotvals[1], rotvals[2], rotvals[3]),
                                 TrackingState = trackingState
                             });
@@ -109,6 +111,75 @@ namespace KinectData
 
             frames.Sort();
             timestamps = frames.Select(f => f.timeStamp).ToList();
+
+            Vector3 prevLeftHand = Vector3.Zero;
+            long prevLeftHandTime = 0;
+            Vector3 prevRightHand = Vector3.Zero;
+            long prevRightHandTime = 0;
+            double msPerTicks = 1.0 / TimeSpan.FromMilliseconds(1).Ticks;
+            List<string> leftStr = new List<string>();
+            for (int fIdx = 0; fIdx < frames.Count; ++fIdx)
+            {
+                Frame f = frames[fIdx];
+                Body b = f.bodies.Where(bd => bd != null).FirstOrDefault();
+                if (b == null)
+                    continue;
+                {
+                    Joint j = b.joints[JointType.HandLeft];
+                    if (j.TrackingState == TrackingState.Tracked ||
+                        j.TrackingState == TrackingState.Inferred)
+                    {
+                        double ms = (f.timeStamp - prevLeftHandTime) * msPerTicks;
+                        double leftToLeft = (j.Position - prevLeftHand).Length / ms * 1000;
+                        
+                        ms = (f.timeStamp - prevRightHandTime) * msPerTicks;
+                        double leftToRight = (j.Position - prevRightHand).Length / ms * 1000;
+                        if (leftToLeft > leftToRight)
+                            leftStr.Add($"{fIdx} L2L {leftToLeft} L2R {leftToRight}");
+                    }
+                    else
+                    {
+                        leftStr.Add($"{fIdx} Left {j.TrackingState}");
+                    }
+                }
+                {
+                    Joint j = b.joints[JointType.HandRight];
+                    if (j.TrackingState == TrackingState.Tracked ||
+                        j.TrackingState == TrackingState.Inferred)
+                    {
+                        double ms = (f.timeStamp - prevRightHandTime) * msPerTicks;
+                        double rightToRight = (j.Position - prevRightHand).Length / ms * 1000;
+                        ms = (f.timeStamp - prevLeftHandTime) * msPerTicks;
+                        double rightToLeft = (j.Position - prevLeftHand).Length / ms * 1000;
+                        if (rightToRight > rightToLeft)
+                            leftStr.Add($"{fIdx} R2R {rightToRight} R2L {rightToLeft}");
+                    }
+                    else
+                    {
+                        leftStr.Add($"{fIdx} Right {j.TrackingState}");
+                    }
+                }
+                {
+                    Joint j = b.joints[JointType.HandLeft];
+                    if (j.TrackingState == TrackingState.Tracked)
+                    {
+                        prevLeftHand = j.Position;
+                        prevLeftHandTime = f.timeStamp;
+                    }
+                }
+                {
+                    Joint j = b.joints[JointType.HandRight];
+                    if (j.TrackingState == TrackingState.Tracked)
+                    {
+                        prevRightHand = j.Position;
+                        prevRightHandTime = f.timeStamp;
+                    }
+                }
+            }
+
+            string lstr = string.Join("\n", leftStr.ToArray());
+            System.Diagnostics.Debug.WriteLine(lstr);
+
         }
 
         public Frame GetInterpolatedFrame(long timestamp)
@@ -229,7 +300,7 @@ namespace KinectData
         }
 
         public void SetJoints(Dictionary<JointType, Joint> jointPositions)
-        {            
+        {
             SetJointsRec(jointPositions, Matrix3.Identity, Matrix4.Identity);
             SetJointLengths(Matrix4.Identity);
 
@@ -709,6 +780,7 @@ namespace KinectData
         //     Right thumb.
         ThumbRight = 24
     }
+
     public class Joint
     {
         public Vector3 Position;
@@ -850,5 +922,61 @@ namespace KinectData
                 JointsIdx[(int)j.jt] = j;
             }
         }
+
+        public static Vector3[] JointVals = new Vector3[]
+        {
+        new Vector3(0, 0, 0),
+        //SpineBase = 0,
+        new Vector3(0, 0, 0),
+        //SpineMid = 1,
+        new Vector3(0, -1, 0),
+        //Neck = 1,
+        new Vector3(0, -1, 0),
+        //Head = 1,
+        new Vector3(-1, -0.5f, 0),
+        //ShoulderLeft = 1,
+        new Vector3(-1, -0.5f, 0),
+        //ElbowLeft = 1,
+        new Vector3(-1, -0.5f, 0),
+        //WristLeft = 1,
+        new Vector3(-1, -0.5f, 0),
+        //HandLeft = 1,
+        new Vector3(1, -0.5f, 0),
+        //ShoulderRight = 1,
+        new Vector3(1, -0.5f, 0),
+        //ElbowRight = 1,
+        new Vector3(1, -0.5f, 0),
+        //WristRight = 1,
+        new Vector3(1, -0.5f, 0),
+        //HandRight = 1,
+        new Vector3(-1, 0.5f, 0),
+        //HipLeft = 1,
+        new Vector3(-1, 0.5f, 0),
+        //KneeLeft = 1,
+        new Vector3(-1, 1, 0),
+        //AnkleLeft = 1,
+        new Vector3(-1, 1, 0),
+        //FootLeft = 1,
+        new Vector3(1, 0.5f, 0),
+        //HipRight = 1,
+        new Vector3(1, 0.5f, 0),
+        //KneeRight = 1,
+        new Vector3(1, 1, 0),
+        //AnkleRight = 1,
+        new Vector3(1, 1, 0),
+        //FootRight = 1,        
+        new Vector3(0, 0, 0),
+        //SpineShoulder = 1,
+        new Vector3(-1, -0.5f, 0),
+        //HandTipLeft = 1,
+        new Vector3(-1, -0.5f, 0),
+        //ThumbLeft = 1,
+        new Vector3(1, -0.5f, 0),
+        //HandTipRight = 1,
+        new Vector3(1, -0.5f, 0)
+            //ThumbRight = 1,
+        };
+
+
     }
 }
