@@ -38,18 +38,18 @@ namespace KinectData
                 readPtr += sizeof(long);
                 int nBodies = BitConverter.ToInt32(bytes, readPtr);
                 readPtr += sizeof(int);
-                frame.bodies = new Body[nBodies];
+                frame.bodies = new Dictionary<ulong, Body>();
                 for (int i = 0; i < nBodies; ++i)
                 {
                     bool isTracked = BitConverter.ToBoolean(bytes, readPtr);
                     readPtr += sizeof(bool);
                     if (isTracked)
                     {
-                        frame.bodies[i] = new Body(this);
+                        Body nb = new Body(this);
 
-                        frame.bodies[i].lean.X = BitConverter.ToSingle(bytes, readPtr);
+                        nb.lean.X = BitConverter.ToSingle(bytes, readPtr);
                         readPtr += sizeof(float);
-                        frame.bodies[i].lean.Y = BitConverter.ToSingle(bytes, readPtr);
+                        nb.lean.Y = BitConverter.ToSingle(bytes, readPtr);
                         readPtr += sizeof(float);
 
                         for (int boneIdx = 0; boneIdx < 25; ++boneIdx)
@@ -75,17 +75,18 @@ namespace KinectData
                                 readPtr += sizeof(float);
                             }
 
-                            frame.bodies[i].joints.Add(jt, new Joint()
+                            nb.joints.Add(jt, new Joint()
                             {
                                 Position = new Vector3(posvals[0], posvals[1], posvals[2]),
                                 Orientation = new Vector4(rotvals[0], rotvals[1], rotvals[2], rotvals[3]),
                                 TrackingState = trackingState
                             });
                         }
-                        frame.bodies[i].top = JointNode.MakeBodyDef();
-                        frame.bodies[i].top.SetJoints(frame.bodies[i].joints);
-                        frame.bodies[i].GetJointNodes();
-                        frame.bodies[i].top.GetJointLengths(jointLengths);
+                        nb.top = JointNode.MakeBodyDef();
+                        nb.top.SetJoints(nb.joints);
+                        nb.GetJointNodes();
+                        nb.top.GetJointLengths(jointLengths);
+                        frame.bodies.Add(0, nb);
                     }
                 }
                 frames.Add(frame);
@@ -121,7 +122,7 @@ namespace KinectData
             for (int fIdx = 0; fIdx < frames.Count; ++fIdx)
             {
                 Frame f = frames[fIdx];
-                Body b = f.bodies.Where(bd => bd != null).FirstOrDefault();
+                Body b = f.bodies.FirstOrDefault().Value;
                 if (b == null)
                     continue;
                 {
@@ -829,7 +830,7 @@ namespace KinectData
 
     public class Frame : IComparable<Frame>
     {
-        public Body[] bodies;
+        public Dictionary<ulong, Body> bodies;
         public long timeStamp;
         public int CompareTo(Frame other)
         {
@@ -844,31 +845,28 @@ namespace KinectData
 
         public void DumpDebugInfo()
         {
-            foreach (var b in bodies)
+            foreach (var b in bodies.Values)
                 if (b != null) b.DumpDebugInfo();
         }
 
         public void SetJointColor(JointType jt, Vector3 color)
         {
-            foreach (Body b in bodies)
+            foreach (Body b in bodies.Values)
             {
-                b?.SetJointColor(jt, color);
+                b.SetJointColor(jt, color);
             }
         }
 
         public Frame(Frame left, Frame right, float interpVal)
         {
-            int bodyct = Math.Max(left.bodies.Length, right.bodies.Length);
-            bodies = new Body[bodyct];
-            for (int bodyIdx = 0; bodyIdx < bodyct; ++bodyIdx)
+            this.bodies = new Dictionary<ulong, Body>();
+            foreach (var kb in left.bodies)
             {
-                if (left.bodies[bodyIdx] == null)
-                    bodies[bodyIdx] = right.bodies[bodyIdx];
-                else if (right.bodies[bodyIdx] == null)
-                    bodies[bodyIdx] = left.bodies[bodyIdx];
-                else
+                Body rightBody;
+                if (right.bodies.TryGetValue(kb.Key, out rightBody))
                 {
-                    bodies[bodyIdx] = new Body(left.bodies[bodyIdx], right.bodies[bodyIdx], interpVal);
+                    this.bodies.Add(kb.Key,
+                        new Body(kb.Value, rightBody, interpVal));
                 }
             }
         }

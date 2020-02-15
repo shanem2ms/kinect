@@ -85,7 +85,7 @@ namespace kinectwall
             dir /= len;
 
             Quaternion q = FromToVector(Vector3.UnitZ, dir);
-            
+
             Matrix4 matWorld = Matrix4.CreateScale(0.001f, 0.001f, len / 2) *
                 Matrix4.CreateFromQuaternion(q) *
                     Matrix4.CreateTranslation(offset);
@@ -162,53 +162,51 @@ namespace kinectwall
                 simDict = new Dictionary<KinectData.JointNode, SimObjectMesh>();
 
             List<ConstraintDef> constraints = new List<ConstraintDef>();
-            foreach (var body in bodyFrame.bodies)
+            foreach (var body in bodyFrame.bodies.Values)
             {
-                if (body != null)
+                body.top.DrawNode((jn) =>
                 {
-                    body.top.DrawNode((jn) =>
+                    Matrix4 worldMat =
+                        Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                        jn.WorldMat;
+                    Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
+                    BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
+
+                    SimObjectMesh obj = new SimObjectMesh(worldMat, 0.2f, boneTM);
+                    obj.CollisionGroup = 64;
+                    Vector3 vecjoint = KinectData.PoseData.JointVals[(int)jn.jt];
+
+                    Vector3 lrColor = new Vector3(0.5f, 0.5f, 0.5f);
+                    if (vecjoint.X > 0)
+                        lrColor = new Vector3(0, 1, 0);
+                    else if (vecjoint.X < 0)
+                        lrColor = new Vector3(1, 0, 0);
+
+                    obj.objectInfo = new MeshInfo()
                     {
-                        Matrix4 worldMat =
-                            Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
-                            jn.WorldMat;
-                        Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
-                        BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
+                        color = lrColor,
+                        scale = meshScale,
+                        name = jn.jt.ToString()
+                    };
 
-                        SimObjectMesh obj = new SimObjectMesh(worldMat, 0.2f, boneTM);
-                        obj.CollisionGroup = 64;
-                        Vector3 vecjoint = KinectData.PoseData.JointVals[(int)jn.jt];
+                    simObjects.Add(obj);
+                    simDict.Add(jn, obj);
 
-                        Vector3 lrColor = new Vector3(0.5f, 0.5f, 0.5f);
-                        if (vecjoint.X > 0)
-                            lrColor = new Vector3(0, 1, 0);
-                        else if (vecjoint.X < 0)
-                            lrColor = new Vector3(1, 0, 0);
-
-                        obj.objectInfo = new MeshInfo()
+                    if (jn.Parent != null)
+                    {
+                        SimObjectMesh parentObj = simDict[jn.Parent];
+                        Vector3 localPivot = new Vector3(0, -jn.jointLength * 0.5f, 0);
+                        Vector3 worldPivot = Vector3.TransformPosition(localPivot, obj.WorldMatrix);
+                        Vector3 parentLocalPivot = Vector3.TransformPosition(worldPivot,
+                            parentObj.WorldMatrix.Inverted());
+                        constraints.Add(new ConstraintDef()
                         {
-                            color = lrColor,
-                            scale = meshScale,
-                            name = jn.jt.ToString()
-                        };
-
-                        simObjects.Add(obj);
-                        simDict.Add(jn, obj);
-
-                        if (jn.Parent != null)
-                        {
-                            SimObjectMesh parentObj = simDict[jn.Parent];
-                            Vector3 localPivot = new Vector3(0, -jn.jointLength * 0.5f, 0);
-                            Vector3 worldPivot = Vector3.TransformPosition(localPivot, obj.WorldMatrix);
-                            Vector3 parentLocalPivot = Vector3.TransformPosition(worldPivot,
-                                parentObj.WorldMatrix.Inverted());
-                            constraints.Add(new ConstraintDef()
-                            {
-                                node1 = obj,
-                                localPivot1 = localPivot,
-                                node2 = parentObj,
-                                localPivot2 = parentLocalPivot
-                            });
-                        }
+                            node1 = obj,
+                            localPivot1 = localPivot,
+                            node2 = parentObj,
+                            localPivot2 = parentLocalPivot
+                        });
+                    }
 
 
                         /*if (jn.jt == KinectData.JointType.HandLeft ||
@@ -216,25 +214,24 @@ namespace kinectwall
                             jn.jt == KinectData.JointType.FootLeft ||
                             jn.jt == KinectData.JointType.FootRight ||
                             jn.jt == KinectData.JointType.Head)*/
+                    {
+                        constraints.Add(new ConstraintDef()
                         {
-                            constraints.Add(new ConstraintDef()
-                            {
-                                isTwoBodies = false,
-                                jt = jn.jt,
-                                node1 = obj,
-                                localPivot1 = Vector3.Zero
-                            });
-                        }
+                            isTwoBodies = false,
+                            jt = jn.jt,
+                            node1 = obj,
+                            localPivot1 = Vector3.Zero
+                        });
+                    }
 
-                    });
-                }
+                });
             }
 
             foreach (var so in simObjects)
             {
                 simulation.AddObj(so);
             }
-            
+
             foreach (var con in constraints)
             {
                 if (con.isTwoBodies)
@@ -261,29 +258,26 @@ namespace kinectwall
             if (bodyFrame == null)
                 return;
 
-            foreach (var body in bodyFrame.bodies)
+            foreach (var body in bodyFrame.bodies.Values)
             {
-                if (body != null)
+                body.top.DrawNode((jn) =>
                 {
-                    body.top.DrawNode((jn) =>
+                    Constraint constraint;
+                    if (bodyDraggers.TryGetValue(jn.jt, out constraint))
                     {
-                        Constraint constraint;
-                        if (bodyDraggers.TryGetValue(jn.jt, out constraint))
+                        Matrix4 worldMat =
+                            Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                            jn.WorldMat;
+                        if (jn.Tracked == KinectData.TrackingState.Tracked)
                         {
-                            Matrix4 worldMat =
-                                Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
-                                jn.WorldMat;
-                            if (jn.Tracked == KinectData.TrackingState.Tracked)
-                            {
-                                constraint.Enabled = true;
-                                constraint.UpdateWsPos(worldMat.ExtractTranslation());
-                            }
-                            else
-                                constraint.Enabled = false;
-                        }                    
+                            constraint.Enabled = true;
+                            constraint.UpdateWsPos(worldMat.ExtractTranslation());
+                        }
+                        else
+                            constraint.Enabled = false;
+                    }
 
-                    });
-                }
+                });
             }
 
         }

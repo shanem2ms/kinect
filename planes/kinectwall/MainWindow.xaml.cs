@@ -89,8 +89,18 @@ namespace kinectwall
 
             // initialize the components (controls) of the window
             this.InitializeComponent();
+
+            App.OnWriteMsg = WriteMsg;
         }
 
+        void WriteMsg(string msg)
+        {
+            Dispatcher.BeginInvoke(new Action<string>((str) =>
+            {
+                this.OutputLog.AppendText(str);
+                this.OutputLog.ScrollToEnd();
+            }), new object[] { msg });
+        }
 
         void OnBulletDebugCheckChange(BulletDebugDraw bdd)
         {
@@ -167,6 +177,9 @@ namespace kinectwall
         long bodyTimeLength = 0;
 
         KinectBody liveBodies;
+        public bool IsLive { get; set; }
+        public bool IsRecording { get => liveBodies != null ? liveBodies.IsRecording : false;
+            set { if (liveBodies != null) liveBodies.IsRecording = value; } }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -244,12 +257,6 @@ namespace kinectwall
                 case Key.P:
                     framerate /= 2;
                     break;
-                case Key.L:
-                    live = !live;
-                    break;
-                case Key.R:
-                    App.Recording = !App.Recording;
-                    break;
                 case Key.B:
                     visibleBits = (visibleBits + 1) % 4;
                     break;
@@ -285,13 +292,12 @@ namespace kinectwall
         long frametime = 0;
         long framerate = 10000000 / 60;
         KinectData.Frame curFrame = null;
-        bool live = false;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
-            if (live && liveBodies == null)
+            if (IsLive && liveBodies == null)
                 liveBodies = new KinectBody();
 
-            if (live)
+            if (IsLive)
                 curFrame = liveBodies.CurrentFrame;
             else
                 curFrame = bodyData?.GetInterpolatedFrame(bodyTimeStart +

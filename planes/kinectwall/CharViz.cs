@@ -114,7 +114,7 @@ namespace kinectwall
 
             if (frame != null)
             {
-                Body body = frame.bodies.Where(b => b != null).FirstOrDefault();
+                Body body = frame.bodies.FirstOrDefault().Value;
                 if (body != null) model.SetBody(body);
             }
 

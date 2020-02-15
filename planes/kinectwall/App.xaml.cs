@@ -16,7 +16,13 @@ namespace kinectwall
         public static string BodyFile;
         public static string DepthFile;
         public static string CharacterFile;
-        public static bool Recording = false;
+        public delegate void WriteMsgDel(string msg);
+        public static WriteMsgDel OnWriteMsg;
+
+        public static void WriteLine(string msg)
+        {
+            OnWriteMsg(msg + "\n");
+        }
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
