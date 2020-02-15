@@ -13,14 +13,6 @@ namespace kinectwall
     {
         KinectSensor kinectSensor;
         BodyFrameReader bodyFrameReader;
-        // The face frame source
-        HighDefinitionFaceFrameSource _faceSource = null;
-        HighDefinitionFaceFrameReader _faceReader = null;
-        private FaceAlignment currentFaceAlignment = null;
-        private FaceModel currentFaceModel = null;
-        private FaceModelBuilder faceModelBuilder = null;
-        FaceMesh faceMesh = new FaceMesh();
-        ulong CurrentTrackingId = 0;
 
         public bool IsRecording = false;
 
@@ -34,193 +26,219 @@ namespace kinectwall
 
             this.bodyFrameReader.FrameArrived += BodyFrameReader_FrameArrived;
 
-            // Initialize the face source with the desired features
-            _faceSource = new HighDefinitionFaceFrameSource(this.kinectSensor);
-            _faceSource.TrackingIdLost += _faceSource_TrackingIdLost;
-            _faceReader = _faceSource.OpenReader();
-            _faceReader.FrameArrived += _faceReader_FrameArrived1;
-            this.currentFaceAlignment = new FaceAlignment();
-            this.currentFaceModel = new FaceModel();
-
             // open the sensor
-            this.kinectSensor.Open();
-
-            StartFaceCapture();
+            this.kinectSensor.Open();            
         }
 
-        /// <summary>
-        /// Start a face capture operation
-        /// </summary>
-        private void StartFaceCapture()
+
+        class FaceTrack
         {
-            this.StopFaceCapture();
+            // The face frame source
+            HighDefinitionFaceFrameSource _faceSource = null;
+            HighDefinitionFaceFrameReader _faceReader = null;
+            private FaceAlignment currentFaceAlignment = null;
+            private FaceModel currentFaceModel = null;
+            private FaceModelBuilder faceModelBuilder = null;
+            FaceMesh faceMesh = new FaceMesh();
+            ulong trackingId = 0;
 
-            this.faceModelBuilder = null;
-
-            this.faceModelBuilder = this._faceSource.OpenModelBuilder(FaceModelBuilderAttributes.None);
-
-            this.faceModelBuilder.BeginFaceDataCollection();
-
-            this.faceModelBuilder.CollectionCompleted += this.HdFaceBuilder_CollectionCompleted;
-        }
-
-        /// <summary>
-        /// This event fires when the face capture operation is completed
-        /// </summary>
-        /// <param name="sender">object sending the event</param>
-        /// <param name="e">event arguments</param>
-        private void HdFaceBuilder_CollectionCompleted(object sender, FaceModelBuilderCollectionCompletedEventArgs e)
-        {
-            var modelData = e.ModelData;
-
-            this.currentFaceModel = modelData.ProduceFaceModel();
-
-            this.faceModelBuilder.Dispose();
-            this.faceModelBuilder = null;
-
-            App.WriteLine("Face Capture Complete");
-        }
-        /// <summary>
-        /// Cancel the current face capture operation
-        /// </summary>
-        private void StopFaceCapture()
-        {
-            if (this.faceModelBuilder != null)
+            public FaceTrack(KinectSensor kinectSensor, ulong trackId)
             {
-                this.faceModelBuilder.Dispose();
+                trackingId = trackId;
+                // Initialize the face source with the desired features
+                _faceSource = new HighDefinitionFaceFrameSource(kinectSensor);
+                _faceSource.TrackingIdLost += _faceSource_TrackingIdLost;
+                _faceSource.TrackingId = trackId;
+                _faceReader = _faceSource.OpenReader();
+                _faceReader.FrameArrived += _faceReader_FrameArrived1;
+                this.currentFaceAlignment = new FaceAlignment();
+                this.currentFaceModel = new FaceModel();
+
+                StartFaceCapture();
+            }
+
+
+            /// Start a face capture operation
+            /// </summary>
+            private void StartFaceCapture()
+            {
+                this.StopFaceCapture();
+
                 this.faceModelBuilder = null;
+
+                this.faceModelBuilder = this._faceSource.OpenModelBuilder(FaceModelBuilderAttributes.None);
+
+                this.faceModelBuilder.BeginFaceDataCollection();
+
+                this.faceModelBuilder.CollectionCompleted += this.HdFaceBuilder_CollectionCompleted;
             }
-        }
-
-
-        private void _faceReader_FrameArrived1(object sender, HighDefinitionFaceFrameArrivedEventArgs e)
-        {
-            CheckOnBuilderStatus();
-            using (var frame = e.FrameReference.AcquireFrame())
-            {
-                // We might miss the chance to acquire the frame; it will be null if it's missed.
-                // Also ignore this frame if face tracking failed.
-                if (frame == null || !frame.IsFaceTracked)
-                {
-                    return;
-                }
-
-                frame.GetAndRefreshFaceAlignmentResult(this.currentFaceAlignment);
-                App.OnWriteMsg($"face {frame.TrackingId}");                
-                faceMesh.Update(this.currentFaceModel, this.currentFaceAlignment);
-            }
-        }
-
-
-        /// <summary>
-        /// Check the face model builder status
-        /// </summary>
-        private void CheckOnBuilderStatus()
-        {
-            if (this.faceModelBuilder == null)
-            {
-                return;
-            }
-
-            string newStatus = string.Empty;
-
-            var captureStatus = this.faceModelBuilder.CaptureStatus;
-            newStatus += captureStatus.ToString();
-
-            var collectionStatus = this.faceModelBuilder.CollectionStatus;
-
-            newStatus += ", " + GetCollectionStatusText(collectionStatus);
-
-            App.WriteLine(newStatus);
-        }
-
-        /// <summary>
-        /// Gets the current collection status
-        /// </summary>
-        /// <param name="status">Status value</param>
-        /// <returns>Status value as text</returns>
-        private static string GetCollectionStatusText(FaceModelBuilderCollectionStatus status)
-        {
-            string res = string.Empty;
-
-            if ((status & FaceModelBuilderCollectionStatus.FrontViewFramesNeeded) != 0)
-            {
-                res = "FrontViewFramesNeeded";
-                return res;
-            }
-
-            if ((status & FaceModelBuilderCollectionStatus.LeftViewsNeeded) != 0)
-            {
-                res = "LeftViewsNeeded";
-                return res;
-            }
-
-            if ((status & FaceModelBuilderCollectionStatus.RightViewsNeeded) != 0)
-            {
-                res = "RightViewsNeeded";
-                return res;
-            }
-
-            if ((status & FaceModelBuilderCollectionStatus.TiltedUpViewsNeeded) != 0)
-            {
-                res = "TiltedUpViewsNeeded";
-                return res;
-            }
-
-            if ((status & FaceModelBuilderCollectionStatus.Complete) != 0)
-            {
-                res = "Complete";
-                return res;
-            }
-
-            if ((status & FaceModelBuilderCollectionStatus.MoreFramesNeeded) != 0)
-            {
-                res = "TiltedUpViewsNeeded";
-                return res;
-            }
-
-            return res;
-        }
-
-        class FaceMesh
-        {
-            public uint[] indices = null;
-            public Vector3[] pos;
 
             /// <summary>
-            /// Sends the new deformed mesh to be drawn
+            /// This event fires when the face capture operation is completed
             /// </summary>
-            public void Update(FaceModel faceModel, FaceAlignment faceAlignment)
+            /// <param name="sender">object sending the event</param>
+            /// <param name="e">event arguments</param>
+            private void HdFaceBuilder_CollectionCompleted(object sender, FaceModelBuilderCollectionCompletedEventArgs e)
             {
-                var vertices = faceModel.CalculateVerticesForAlignment(faceAlignment);
-                if (this.indices == null)
-                    this.indices = faceModel.TriangleIndices.ToArray();
-                this.pos = vertices.Select(csp => new Vector3(csp.X, csp.Y, csp.Z)).ToArray();
+                var modelData = e.ModelData;
+
+                this.currentFaceModel = modelData.ProduceFaceModel();
+
+                this.faceModelBuilder.Dispose();
+                this.faceModelBuilder = null;
+
+                App.WriteLine("Face Capture Complete");
             }
-        }
-
-        private void _faceSource_TrackingIdLost(object sender, TrackingIdLostEventArgs e)
-        {
-            var lostTrackingID = e.TrackingId;
-
-            if (this.CurrentTrackingId == lostTrackingID)
+            /// <summary>
+            /// Cancel the current face capture operation
+            /// </summary>
+            private void StopFaceCapture()
             {
-                this.CurrentTrackingId = 0;
                 if (this.faceModelBuilder != null)
                 {
                     this.faceModelBuilder.Dispose();
                     this.faceModelBuilder = null;
                 }
+            }
 
-                this._faceSource.TrackingId = 0;
+
+            private void _faceReader_FrameArrived1(object sender, HighDefinitionFaceFrameArrivedEventArgs e)
+            {
+                //CheckOnBuilderStatus();
+                using (var frame = e.FrameReference.AcquireFrame())
+                {
+                    // We might miss the chance to acquire the frame; it will be null if it's missed.
+                    // Also ignore this frame if face tracking failed.
+                    if (frame == null || !frame.IsFaceTracked)
+                    {
+                        return;
+                    }
+
+                    frame.GetAndRefreshFaceAlignmentResult(this.currentFaceAlignment);
+                    App.WriteLine($"face {frame.TrackingId}");
+                    faceMesh.Update(this.currentFaceModel, this.currentFaceAlignment);
+                }
+            }
+
+
+            /// <summary>
+            /// Check the face model builder status
+            /// </summary>
+            private void CheckOnBuilderStatus()
+            {
+                if (this.faceModelBuilder == null)
+                {
+                    return;
+                }
+
+                string newStatus = string.Empty;
+                var captureStatus = this.faceModelBuilder.CaptureStatus;
+                newStatus += captureStatus.ToString();
+                var collectionStatus = this.faceModelBuilder.CollectionStatus;
+                newStatus += ", " + GetCollectionStatusText(collectionStatus);
+                App.WriteLine(newStatus);
+            }
+
+            /// <summary>
+            /// Gets the current collection status
+            /// </summary>
+            /// <param name="status">Status value</param>
+            /// <returns>Status value as text</returns>
+            private static string GetCollectionStatusText(FaceModelBuilderCollectionStatus status)
+            {
+                string res = string.Empty;
+
+                if ((status & FaceModelBuilderCollectionStatus.FrontViewFramesNeeded) != 0)
+                {
+                    res = "FrontViewFramesNeeded";
+                    return res;
+                }
+
+                if ((status & FaceModelBuilderCollectionStatus.LeftViewsNeeded) != 0)
+                {
+                    res = "LeftViewsNeeded";
+                    return res;
+                }
+
+                if ((status & FaceModelBuilderCollectionStatus.RightViewsNeeded) != 0)
+                {
+                    res = "RightViewsNeeded";
+                    return res;
+                }
+
+                if ((status & FaceModelBuilderCollectionStatus.TiltedUpViewsNeeded) != 0)
+                {
+                    res = "TiltedUpViewsNeeded";
+                    return res;
+                }
+
+                if ((status & FaceModelBuilderCollectionStatus.Complete) != 0)
+                {
+                    res = "Complete";
+                    return res;
+                }
+
+                if ((status & FaceModelBuilderCollectionStatus.MoreFramesNeeded) != 0)
+                {
+                    res = "TiltedUpViewsNeeded";
+                    return res;
+                }
+
+                return res;
+            }
+
+            class FaceMesh
+            {
+                public uint[] indices = null;
+                public Vector3[] pos;
+
+                /// <summary>
+                /// Sends the new deformed mesh to be drawn
+                /// </summary>
+                public void Update(FaceModel faceModel, FaceAlignment faceAlignment)
+                {
+                    var vertices = faceModel.CalculateVerticesForAlignment(faceAlignment);
+                    if (this.indices == null)
+                        this.indices = faceModel.TriangleIndices.ToArray();
+                    this.pos = vertices.Select(csp => new Vector3(csp.X, csp.Y, csp.Z)).ToArray();
+                }
+            }
+
+            private void _faceSource_TrackingIdLost(object sender, TrackingIdLostEventArgs e)
+            {
+                var lostTrackingID = e.TrackingId;
+
+                if (this.trackingId == lostTrackingID)
+                {
+                    if (this.faceModelBuilder != null)
+                    {
+                        this.faceModelBuilder.Dispose();
+                        this.faceModelBuilder = null;
+                    }
+                }
             }
         }
+        /// <summary>
 
         long timeStamp;
         Body[] bodies = null;
 
-        class TrackedBody
+        public class TrackedBody
         {
+            FaceTrack faceTrack = null;
+            ulong trackingId;
+            public List<Tuple<long, kd.Body>> bodyFrames = new List<Tuple<long, kd.Body>>();
+
+            public TrackedBody(ulong id)
+            {
+                this.trackingId = id;
+                App.WriteLine($"New tracked body {id}");
+            }
+
+            public void InitFaceTrack(KinectSensor sensor)
+            {
+                this.faceTrack = new FaceTrack(sensor, this.trackingId);
+            }
 
         }
         Dictionary<ulong, TrackedBody> trackedBodies = new Dictionary<ulong, TrackedBody>();
@@ -247,6 +265,13 @@ namespace kinectwall
                         Body b = bodies[i];
                         if (b.IsTracked)
                         {
+                            TrackedBody tb;
+                            if (!trackedBodies.TryGetValue(b.TrackingId, out tb))
+                            {
+                                tb = new TrackedBody(b.TrackingId);
+                                tb.InitFaceTrack(this.kinectSensor);
+                                trackedBodies.Add(b.TrackingId, tb);
+                            }
                             //App.WriteLine($"b [{i}] {b.TrackingId}");
                             kd.Body newBody = new kd.Body(null);
                             newBody.top = kd.JointNode.MakeBodyDef();
@@ -277,6 +302,7 @@ namespace kinectwall
                                 frame = new kd.Frame();
                                 frame.bodies = new Dictionary<ulong, kd.Body>();
                             }
+                            tb.bodyFrames.Add(new Tuple<long, kd.Body>(timeStamp, newBody));
                             frame.bodies.Add(b.TrackingId, newBody);
                         }
                     }
@@ -284,7 +310,6 @@ namespace kinectwall
                     if (frame != null)
                     {
                         frame.timeStamp = e.FrameReference.RelativeTime.Ticks;
-                        this._faceSource.TrackingId = this.CurrentTrackingId = frame.bodies.First().Key;
                     }
 
                     CurrentFrame = frame;

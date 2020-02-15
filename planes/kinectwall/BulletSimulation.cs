@@ -64,7 +64,7 @@ namespace kinectwall
             {
                 body.BroadphaseProxy.CollisionFilterGroup = CollisionGroup;
                 body.BroadphaseProxy.CollisionFilterMask = (int)CollisionFilterGroups.StaticFilter;
-                body.Gravity = new BulletSharp.Math.Vector3(0);
+                //body.Gravity = new BulletSharp.Math.Vector3(0);
             }
         }
 
@@ -93,6 +93,7 @@ namespace kinectwall
 
     class Constraint
     {
+        Generic6DofConstraint dof;
         Point2PointConstraint p2p;
 
         SimObjectMesh pinnedBody;
@@ -100,8 +101,9 @@ namespace kinectwall
         public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot,
             SimObjectMesh mesh2, OpenTK.Vector3 m2pivot)
         {
-
+            //dof = new Generic6DofConstraint(mesh1.Body, mesh2.Body, 
             p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
+            
             //p2p.BreakingImpulseThreshold = 10.0f;
         }
 
