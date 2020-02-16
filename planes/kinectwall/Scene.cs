@@ -15,6 +15,8 @@ namespace kinectwall
         private Program pickProgram;
         private VertexArray vertexArray;
         private VertexArray vertexArrayPick;
+        private VertexArray faceArray = null;
+        private bool faceVisible = false;
         public bool IsInitialized = false;
 
         List<SimObjectMesh> simObjects = new List<SimObjectMesh>();
@@ -53,9 +55,12 @@ namespace kinectwall
             public KinectData.JointType jt;
             public bool isTwoBodies = true;
             public SimObjectMesh node1;
-            public Vector3 localPivot1;
+            public Matrix4 matrix1;
             public SimObjectMesh node2;
-            public Vector3 localPivot2;
+            public Matrix4 matrix2;
+            const float eps = 1e-5f;
+            public Vector3 AngleLower = new Vector3(-eps, -eps, -eps);
+            public Vector3 AngleUpper = new Vector3(eps, eps, eps);
         }
 
         Quaternion FromToVector(Vector3 v1, Vector3 v2)
@@ -199,12 +204,15 @@ namespace kinectwall
                         Vector3 worldPivot = Vector3.TransformPosition(localPivot, obj.WorldMatrix);
                         Vector3 parentLocalPivot = Vector3.TransformPosition(worldPivot,
                             parentObj.WorldMatrix.Inverted());
+                        var cLimits = KinectData.JointConstraints.Limits[(int)jn.jt];
                         constraints.Add(new ConstraintDef()
                         {
                             node1 = obj,
-                            localPivot1 = localPivot,
+                            matrix1 = Matrix4.CreateTranslation(localPivot),
                             node2 = parentObj,
-                            localPivot2 = parentLocalPivot
+                            matrix2 = Matrix4.CreateTranslation(parentLocalPivot),
+                            AngleLower = cLimits.lower,
+                            AngleUpper = cLimits.upper
                         });
                     }
 
@@ -220,7 +228,7 @@ namespace kinectwall
                             isTwoBodies = false,
                             jt = jn.jt,
                             node1 = obj,
-                            localPivot1 = Vector3.Zero
+                            matrix1 = Matrix4.Identity
                         });
                     }
 
@@ -237,13 +245,15 @@ namespace kinectwall
                 if (con.isTwoBodies)
                 {
                     simulation.AddConst(new Constraint(
-                        con.node1, con.localPivot1,
-                        con.node2, con.localPivot2));
+                        con.node1, con.matrix1,
+                        con.node2, con.matrix2,
+                        con.AngleLower,
+                        con.AngleUpper));
                 }
                 else
                 {
                     Constraint c = new Constraint(
-                        con.node1, con.localPivot1);
+                        con.node1, con.matrix1.ExtractTranslation());
                     bodyDraggers.Add(con.jt, c);
                     simulation.AddConst(c);
                 }
@@ -278,6 +288,18 @@ namespace kinectwall
                     }
 
                 });
+
+
+                if (body.face != null)
+                {
+                    this.faceVisible = true;
+                    if (faceArray == null)
+                        faceArray = new VertexArray(program, body.face.pos, body.face.indices, null, null);
+                    else
+                        faceArray.UpdatePositions(body.face.pos);
+                }
+                else
+                    this.faceVisible = false;
             }
 
         }
@@ -306,6 +328,14 @@ namespace kinectwall
                 GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
                 // Use the vertex array
                 vertexArray.Draw();
+            }
+            if (faceArray !=null)
+            {
+                Matrix4 matWorldViewProj = viewProj;
+                GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                program.Set1("ambient", 1.0f);
+                program.Set3("meshColor", new Vector3(0,1,1));
+                faceArray.DrawWireframe();
             }
         }
 

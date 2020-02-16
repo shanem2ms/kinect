@@ -22,8 +22,6 @@ namespace kinectwall
         Character model;
         Vector3 scale;
 
-        Program boneProgram;
-        VertexArray boneVA;
         public int boneSelIdx = 0;
         public CharViz(string _path)
         {
@@ -34,9 +32,6 @@ namespace kinectwall
         public int matrixMode = 0;
         public void Init()
         {
-            boneProgram = Program.FromFiles("Bone.vert", "Bone.frag");
-            boneVA = Cube.MakeCube(boneProgram);
-
             program = Program.FromFiles("Character.vert", "Character.frag");
             this.model = new Character();
             this.model.Load(path, program);

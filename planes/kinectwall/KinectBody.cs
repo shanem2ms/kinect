@@ -39,8 +39,10 @@ namespace kinectwall
             private FaceAlignment currentFaceAlignment = null;
             private FaceModel currentFaceModel = null;
             private FaceModelBuilder faceModelBuilder = null;
-            FaceMesh faceMesh = new FaceMesh();
+            TrackedFace faceMesh = new TrackedFace();
             ulong trackingId = 0;
+
+            public long TimeStamp => faceMesh.timestamp;
 
             public FaceTrack(KinectSensor kinectSensor, ulong trackId)
             {
@@ -58,6 +60,14 @@ namespace kinectwall
             }
 
 
+            public kd.FaceMesh MakeMesh()
+            {
+                return new kd.FaceMesh()
+                {
+                    indices = faceMesh.indices,
+                    pos = faceMesh.pos
+                };
+            }
             /// Start a face capture operation
             /// </summary>
             private void StartFaceCapture()
@@ -113,10 +123,8 @@ namespace kinectwall
                     {
                         return;
                     }
-
                     frame.GetAndRefreshFaceAlignmentResult(this.currentFaceAlignment);
-                    App.WriteLine($"face {frame.TrackingId}");
-                    faceMesh.Update(this.currentFaceModel, this.currentFaceAlignment);
+                    faceMesh.Update(this.currentFaceModel, this.currentFaceAlignment, frame.RelativeTime.Ticks);
                 }
             }
 
@@ -187,16 +195,18 @@ namespace kinectwall
                 return res;
             }
 
-            class FaceMesh
+            class TrackedFace
             {
                 public uint[] indices = null;
                 public Vector3[] pos;
+                public long timestamp;
 
                 /// <summary>
                 /// Sends the new deformed mesh to be drawn
                 /// </summary>
-                public void Update(FaceModel faceModel, FaceAlignment faceAlignment)
+                public void Update(FaceModel faceModel, FaceAlignment faceAlignment, long timest)
                 {
+                    this.timestamp = timest;
                     var vertices = faceModel.CalculateVerticesForAlignment(faceAlignment);
                     if (this.indices == null)
                         this.indices = faceModel.TriangleIndices.ToArray();
@@ -207,7 +217,7 @@ namespace kinectwall
             private void _faceSource_TrackingIdLost(object sender, TrackingIdLostEventArgs e)
             {
                 var lostTrackingID = e.TrackingId;
-
+                App.WriteLine("Face Lost");
                 if (this.trackingId == lostTrackingID)
                 {
                     if (this.faceModelBuilder != null)
@@ -233,6 +243,18 @@ namespace kinectwall
             {
                 this.trackingId = id;
                 App.WriteLine($"New tracked body {id}");
+            }
+
+            public void AddBodyFrame(Tuple<long, kd.Body> bodyFrame)
+            {
+                if (faceTrack != null)
+                {
+                    long msDelay = (bodyFrame.Item1 - faceTrack.TimeStamp) /
+                        TimeSpan.FromMilliseconds(1).Ticks;
+                    if (msDelay < 50)
+                        bodyFrame.Item2.face = faceTrack.MakeMesh();
+                }
+                bodyFrames.Add(bodyFrame);
             }
 
             public void InitFaceTrack(KinectSensor sensor)
@@ -302,7 +324,7 @@ namespace kinectwall
                                 frame = new kd.Frame();
                                 frame.bodies = new Dictionary<ulong, kd.Body>();
                             }
-                            tb.bodyFrames.Add(new Tuple<long, kd.Body>(timeStamp, newBody));
+                            tb.AddBodyFrame(new Tuple<long, kd.Body>(timeStamp, newBody));
                             frame.bodies.Add(b.TrackingId, newBody);
                         }
                     }

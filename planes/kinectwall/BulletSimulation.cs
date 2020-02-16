@@ -96,14 +96,18 @@ namespace kinectwall
         Generic6DofConstraint dof;
         Point2PointConstraint p2p;
 
-        SimObjectMesh pinnedBody;
-        public TypedConstraint C => p2p;
-        public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot,
-            SimObjectMesh mesh2, OpenTK.Vector3 m2pivot)
+        SimObjectMesh pinnedBody;        
+        public TypedConstraint C => dof != null ? dof as TypedConstraint : p2p as TypedConstraint;
+        public Constraint(SimObjectMesh mesh1, Matrix4 m1matrix,
+            SimObjectMesh mesh2, Matrix4 m2matrix,
+            OpenTK.Vector3 AngleLower,
+            OpenTK.Vector3 AngleUpper)
         {
-            //dof = new Generic6DofConstraint(mesh1.Body, mesh2.Body, 
-            p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
-            
+            dof = new Generic6DofConstraint(mesh1.Body, mesh2.Body, 
+                Utils.FromMat4(m1matrix), Utils.FromMat4(m2matrix), true);
+            dof.AngularUpperLimit = Utils.FromVector3(AngleUpper);
+            dof.AngularLowerLimit = Utils.FromVector3(AngleLower);
+            //p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
             //p2p.BreakingImpulseThreshold = 10.0f;
         }
 

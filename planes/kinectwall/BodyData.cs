@@ -801,6 +801,7 @@ namespace KinectData
         public BodyData bodyData;
         public JointNode top = null;
         public Vector2 lean;
+        public FaceMesh face;
 
         public Body(BodyData bd) { bodyData = bd; }
 
@@ -827,6 +828,13 @@ namespace KinectData
             top.GetAllJointNodes(this.jointNodes);
         }
     }
+
+    public class FaceMesh
+    {
+        public uint[] indices = null;
+        public Vector3[] pos;
+    }
+
 
     public class Frame : IComparable<Frame>
     {
@@ -870,7 +878,70 @@ namespace KinectData
                 }
             }
         }
+    }
 
+    public static class JointConstraints
+    {
+        const float eps = 1e-5f;
+
+        public class Limit
+        {            
+            public Vector3 upper;
+            public Vector3 lower;
+        }
+
+        public static Limit[] Limits = new Limit[]
+        {
+//        SpineBase = 0,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        SpineMid = 1,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        Neck = 2,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        Head = 3,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        ShoulderLeft = 4,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        ElbowLeft = 5,
+            new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
+//        WristLeft = 6,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        HandLeft = 7,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        ShoulderRight = 8,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        ElbowRight = 9,
+            new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
+//        WristRight = 10,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        HandRight = 11,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        HipLeft = 12,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        KneeLeft = 13,
+            new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
+//        AnkleLeft = 14,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        FootLeft = 15,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        HipRight = 16,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        KneeRight = 17,
+            new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
+//        AnkleRight = 18,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        FootRight = 19,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        SpineShoulder = 20,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        HandTipLeft = 21,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        ThumbLeft = 22,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        HandTipRight = 23,
+            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+//        ThumbRight = 24
+        };
     }
     public static class PoseData
     {
@@ -910,6 +981,7 @@ namespace KinectData
             new Joint(JointType.AnkleRight, new Vector4(0.3143786f, -0.9492956f, 1.418607E-09f, 9.446458f), new Vector3(-0.06327723f, -0.02095552f, 0.4006202f)),
             new Joint(JointType.FootRight, new Vector4(-0.1347214f, 0.9908835f, -1.491198E-08f, 92.18292f), new Vector3(0.1568054f, 0.02131936f, -0.006032104f)),
         };
+
 
         public static Joint[] JointsIdx = null;
         static PoseData()

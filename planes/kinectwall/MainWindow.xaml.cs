@@ -221,7 +221,7 @@ namespace kinectwall
         }
 
         Vector3 curPos = Vector3.Zero;
-        int visibleBits = 1;
+        int visibleBits = 3;
         KinectData.JointType jtSelected = 0;
         protected override void OnKeyDown(KeyEventArgs e)
         {
