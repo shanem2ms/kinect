@@ -2,7 +2,7 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <EnableUnmanagedDebugging>true</EnableUnmanagedDebugging>
-    <StartArguments>-b \\192.168.1.8\rt\poohmodels\body.out -c \\192.168.1.8\rt\poohmodels\Rabbit\rabbit.dae</StartArguments>
+    <StartArguments>-b \\192.168.1.8\rt\poohmodels\body.out -c \\192.168.1.8\rt\poohmodels\Tigger\tigger.dae</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <StartArguments>-c \\192.168.1.8\rt\poohmodels\Pooh\pooh.dae  -b \\192.168.1.8\rt\poohmodels\body.out</StartArguments>

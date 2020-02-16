@@ -31,7 +31,7 @@ namespace kinectwall
         {
             return new BulletSharp.Math.Vector3(v3.X, v3.Y, v3.Z);
         }
-        
+
         public static OpenTK.Vector3 FromBVector3(BulletSharp.Math.Vector3 v3)
         {
             return new OpenTK.Vector3(v3.X, v3.Y, v3.Z);
@@ -52,7 +52,7 @@ namespace kinectwall
             shape.CalculateLocalInertia(mass, out inertia);
             RigidBodyConstructionInfo constructInfo =
                 new RigidBodyConstructionInfo(mass, new DefaultMotionState(
-                    Utils.FromMat4(worldMatrix)), shape, inertia);            
+                    Utils.FromMat4(worldMatrix)), shape, inertia);
             body = new RigidBody(constructInfo);
             body.SetDamping(0.3f, 0.3f);
         }
@@ -74,7 +74,7 @@ namespace kinectwall
         }
 
         public void SetTransform(Matrix4 t)
-        {            
+        {
             body.WorldTransform =
                 Utils.FromMat4(worldMatrix);
         }
@@ -93,25 +93,19 @@ namespace kinectwall
 
     class Constraint
     {
-        Generic6DofConstraint dof;
+        virtual public TypedConstraint C => null;
+
+        public bool Enabled { get => C.IsEnabled; set { C.IsEnabled = value; } }
+    }
+
+    class PointConstraint : Constraint
+    {
         Point2PointConstraint p2p;
 
-        SimObjectMesh pinnedBody;        
-        public TypedConstraint C => dof != null ? dof as TypedConstraint : p2p as TypedConstraint;
-        public Constraint(SimObjectMesh mesh1, Matrix4 m1matrix,
-            SimObjectMesh mesh2, Matrix4 m2matrix,
-            OpenTK.Vector3 AngleLower,
-            OpenTK.Vector3 AngleUpper)
-        {
-            dof = new Generic6DofConstraint(mesh1.Body, mesh2.Body, 
-                Utils.FromMat4(m1matrix), Utils.FromMat4(m2matrix), true);
-            dof.AngularUpperLimit = Utils.FromVector3(AngleUpper);
-            dof.AngularLowerLimit = Utils.FromVector3(AngleLower);
-            //p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
-            //p2p.BreakingImpulseThreshold = 10.0f;
-        }
+        SimObjectMesh pinnedBody;
+        override public TypedConstraint C => p2p;
 
-        public Constraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot)
+        public PointConstraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot)
         {
             pinnedBody = mesh1;
             pinnedBody.Body.ActivationState = ActivationState.DisableDeactivation;
@@ -125,8 +119,28 @@ namespace kinectwall
             //OpenTK.Vector3 lPos = OpenTK.Vector3.TransformPosition(wspos, pinnedBody.WorldMatrix.Inverted());
             p2p.PivotInB = Utils.FromVector3(wspos);
         }
+    }
 
-        public bool Enabled { get => p2p.IsEnabled; set { p2p.IsEnabled = value; } }
+    class G6DOFConstraint : Constraint
+    {
+        Generic6DofConstraint dof;
+
+        override public TypedConstraint C => dof;
+
+        public G6DOFConstraint(SimObjectMesh mesh1, Matrix4 m1matrix,
+                    SimObjectMesh mesh2, Matrix4 m2matrix,
+                    OpenTK.Vector3 AngleLower,
+                    OpenTK.Vector3 AngleUpper)
+        {
+            dof = new Generic6DofConstraint(mesh1.Body, mesh2.Body,
+                Utils.FromMat4(m1matrix), Utils.FromMat4(m2matrix), true);
+            dof.AngularUpperLimit = Utils.FromVector3(AngleUpper);
+            dof.AngularLowerLimit = Utils.FromVector3(AngleLower);
+            dof.BreakingImpulseThreshold = 1e+5f;
+            //p2p = new Point2PointConstraint(mesh1.Body, mesh2.Body, Utils.FromVector3(m1pivot), Utils.FromVector3(m2pivot));
+            //p2p.BreakingImpulseThreshold = 10.0f;
+        }
+
     }
 
     class BulletSimulation
@@ -138,15 +152,18 @@ namespace kinectwall
         ConstraintSolver solver;
 
         DebugDrawModes debugDraw;
-        public DebugDrawModes DebugDraw { get => debugDraw; set
+        public DebugDrawModes DebugDraw
+        {
+            get => debugDraw; set
             {
                 debugDraw = value;
 
-            } }
+            }
+        }
 
         List<SimObjectMesh> bodies = new List<SimObjectMesh>();
         List<Constraint> constraints = new List<Constraint>();
-        
+
         public delegate void DebugDrawLineDel(ref Matrix4 viewProj, OpenTK.Vector3 from, OpenTK.Vector3 to, OpenTK.Vector3 color);
         public DebugDrawLineDel DebugDrawLine = null;
         Matrix4 viewProjDbg;
@@ -157,7 +174,7 @@ namespace kinectwall
             broadphase = new DbvtBroadphase();
             solver = new NncgConstraintSolver();
             colWorld = new DiscreteDynamicsWorld(colDispatcher, broadphase, solver, colConfiguration);
-            colWorld.DebugDrawer = new DbgRenderer(this);            
+            colWorld.DebugDrawer = new DbgRenderer(this);
         }
 
         public void DrawLine(ref BulletSharp.Math.Vector3 from, ref BulletSharp.Math.Vector3 to, ref BulletSharp.Math.Vector3 color)
@@ -197,7 +214,7 @@ namespace kinectwall
             {
                 body.Refresh();
             }
-        }        
+        }
     }
 
     class DbgRenderer : DebugDraw
