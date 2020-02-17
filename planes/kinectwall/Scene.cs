@@ -22,6 +22,8 @@ namespace kinectwall
         List<SimObjectMesh> simObjects = new List<SimObjectMesh>();
         Dictionary<KinectData.JointType, Constraint> bodyDraggers
             = new Dictionary<KinectData.JointType, Constraint>();
+        Dictionary<KinectData.JointType, SimObjectMesh> bodyObjs
+            = new Dictionary<KinectData.JointType, SimObjectMesh>();
 
         public Scene(Program _pickProgram)
         {
@@ -177,7 +179,7 @@ namespace kinectwall
                     Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
                     BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
 
-                    SimObjectMesh obj = new SimObjectMesh(worldMat, 0.2f, boneTM);
+                    SimObjectMesh obj = new SimObjectMesh(worldMat, 0.0f, boneTM);
                     obj.CollisionGroup = 64;
                     Vector3 vecjoint = KinectData.PoseData.JointVals[(int)jn.jt];
 
@@ -195,6 +197,7 @@ namespace kinectwall
                     };
 
                     simObjects.Add(obj);
+                    bodyObjs.Add(jn.jt, obj);
                     simDict.Add(jn, obj);
 
                     if (jn.Parent != null)
@@ -217,11 +220,11 @@ namespace kinectwall
                     }
 
 
-                        /*if (jn.jt == KinectData.JointType.HandLeft ||
+                        if (jn.jt == KinectData.JointType.HandLeft ||
                             jn.jt == KinectData.JointType.HandRight ||
                             jn.jt == KinectData.JointType.FootLeft ||
                             jn.jt == KinectData.JointType.FootRight ||
-                            jn.jt == KinectData.JointType.Head)*/
+                            jn.jt == KinectData.JointType.Head)
                     {
                         constraints.Add(new ConstraintDef()
                         {
@@ -239,12 +242,11 @@ namespace kinectwall
             {
                 simulation.AddObj(so);
             }
-
             foreach (var con in constraints)
             {
                 if (con.isTwoBodies)
                 {
-                    simulation.AddConst(new Constraint(
+                    simulation.AddConst(new G6DOFConstraint(
                         con.node1, con.matrix1,
                         con.node2, con.matrix2,
                         con.AngleLower,
@@ -252,20 +254,57 @@ namespace kinectwall
                 }
                 else
                 {
-                    Constraint c = new Constraint(
+                    Constraint c = new PointConstraint(
                         con.node1, con.matrix1.ExtractTranslation());
                     bodyDraggers.Add(con.jt, c);
                     simulation.AddConst(c);
                 }
             }
 
-
             IsInitialized = true;
         }
 
         public void SetBodyFrame(KinectData.Frame bodyFrame)
         {
-            //if (bodyFrame == null)
+            if (bodyFrame == null)
+                return;
+
+            SetBodyFrameObj(bodyFrame);
+        }
+        public void SetBodyFrameObj(KinectData.Frame bodyFrame)
+        {
+            foreach (var body in bodyFrame.bodies.Values)
+            {
+                body.top.DrawNode((jn) =>
+                {
+                    SimObjectMesh obj;
+                    if (bodyObjs.TryGetValue(jn.jt, out obj))
+                    {
+                        Matrix4 worldMat =
+                            Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                            jn.WorldMat;
+                        obj.SetTransform(worldMat);
+                    }
+
+                });
+
+
+                if (body.face != null)
+                {
+                    this.faceVisible = true;
+                    if (faceArray == null)
+                        faceArray = new VertexArray(program, body.face.pos, body.face.indices, null, null);
+                    else
+                        faceArray.UpdatePositions(body.face.pos);
+                }
+                else
+                    this.faceVisible = false;
+            }
+        }
+
+        void SetConstraintsBodyFrame(KinectData.Frame bodyFrame)
+        {
+            if (bodyFrame == null)
                 return;
 
             foreach (var body in bodyFrame.bodies.Values)
@@ -281,7 +320,7 @@ namespace kinectwall
                         if (jn.Tracked == KinectData.TrackingState.Tracked)
                         {
                             constraint.Enabled = true;
-                            constraint.UpdateWsPos(worldMat.ExtractTranslation());
+                            (constraint as PointConstraint).UpdateWsPos(worldMat.ExtractTranslation());
                         }
                         else
                             constraint.Enabled = false;

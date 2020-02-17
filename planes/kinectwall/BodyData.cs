@@ -9,7 +9,6 @@ namespace KinectData
 {
     public class BodyData
     {
-
         public static JointType[] SpineToHeadJoints = {
             JointType.SpineBase, JointType.SpineMid, JointType.SpineShoulder, JointType.Neck, JointType.Head };
 
@@ -880,6 +879,94 @@ namespace KinectData
         }
     }
 
+    public class JointLimits : kinectwall.BaseNotifier
+    {
+        private static Vector3 QToEuler(Quaternion q)
+        {
+            double eX = Math.Atan2(-2 * (q.Y * q.Z - q.W * q.X), q.W * q.W - q.X * q.X - q.Y * q.Y + q.Z * q.Z);
+            double eY = Math.Asin(2 * (q.X * q.Z + q.W * q.Y));
+            double eZ = Math.Atan2(-2 * (q.X * q.Y - q.W * q.Z), q.W * q.W + q.X * q.X - q.Y * q.Y - q.Z * q.Z);
+            return new Vector3((float)eX, (float)eY, (float)eZ);
+        }
+
+        public static JointLimits []Build()
+        {
+            JointLimits[] limits = new JointLimits[(int)JointType.ThumbRight + 1];
+            for (int i = 0; i < limits.Length; ++i)
+                limits[i] = new JointLimits((JointType)i);
+            return limits;
+        }
+
+        public KinectData.JointType jt { get; }
+        Vector3 minVals = new Vector3(1, 1, 1);
+        public Vector3 MinVals => minVals;
+        Vector3 maxVals = new Vector3(-1, -1, -1);
+        public Vector3 MaxVals => maxVals;
+        const float PiInv = 1.0f / (float)Math.PI;
+
+        public Vector3 Range { get
+            {
+                return new Vector3(
+                    Math.Max(0, maxVals.X - minVals.X),
+                    Math.Max(0, maxVals.Y - minVals.Y),
+                    Math.Max(0, maxVals.Z - minVals.Z));
+            }
+        }
+
+        JointLimits(JointType _jt)
+        {
+            jt = _jt;
+        }
+        public void ApplyQuaternion(Quaternion q)
+        {
+            Vector3 v = QToEuler(q) * PiInv;
+            bool minupdated = false,
+                maxupdated = false;
+            if (v.X < minVals.X)
+            {
+                minVals.X = v.X;
+                minupdated = true;
+            }
+            if (v.X > maxVals.X)
+            {
+                maxVals.X = v.X;
+                maxupdated = true;
+            }
+            if (v.Y < minVals.Y)
+            {
+                minVals.Y = v.Y;
+                minupdated = true;
+            }
+            if (v.Y > maxVals.Y)
+            {
+                maxVals.Y = v.Y;
+                maxupdated = true;
+            }
+            if (v.Z < minVals.Z)
+            {
+                minVals.Z = v.Z;
+                minupdated = true;
+            }
+            if (v.Z > maxVals.Z)
+            {
+                maxVals.Z = v.Z;
+                maxupdated = true;
+            }
+
+            if (minupdated)
+                OnPropertyChanged("MinVals");
+            if (maxupdated)
+                OnPropertyChanged("MaxVals");
+            if (minupdated || maxupdated)
+                OnPropertyChanged("Range");
+        }
+
+        public override string ToString()
+        {
+            return $"min: {minVals}  max: {maxVals}";
+        }
+    }
+
     public static class JointConstraints
     {
         const float eps = 1e-5f;
@@ -901,7 +988,7 @@ namespace KinectData
 //        Head = 3,
             new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
 //        ShoulderLeft = 4,
-            new Limit() { upper = new Vector3(0.5f, 0.5f, 0.5f), lower = new Vector3(-0.5f, -0.5f, -0.5f) },
+            new Limit() { upper = new Vector3(1, 1, 1), lower = new Vector3(-1, -1, -1) },
 //        ElbowLeft = 5,
             new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
 //        WristLeft = 6,
@@ -909,7 +996,7 @@ namespace KinectData
 //        HandLeft = 7,
             new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
 //        ShoulderRight = 8,
-            new Limit() { upper = new Vector3(0.5f, 0.5f, 0.5f), lower = new Vector3(-0.5f, -0.5f, -0.5f) },
+            new Limit() { upper = new Vector3(1, 1, 1), lower = new Vector3(-1, -1, -1) },
 //        ElbowRight = 9,
             new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
 //        WristRight = 10,
@@ -917,7 +1004,7 @@ namespace KinectData
 //        HandRight = 11,
             new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
 //        HipLeft = 12,
-            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+            new Limit() { upper = new Vector3(1, 1, 1), lower = new Vector3(-1, -1, -1) },
 //        KneeLeft = 13,
             new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
 //        AnkleLeft = 14,
@@ -925,7 +1012,7 @@ namespace KinectData
 //        FootLeft = 15,
             new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
 //        HipRight = 16,
-            new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
+            new Limit() { upper = new Vector3(1, 1, 1), lower = new Vector3(-1, -1, -1) },
 //        KneeRight = 17,
             new Limit() { upper = new Vector3(1, eps, eps), lower = new Vector3(-1, -eps, -eps) },
 //        AnkleRight = 18,

@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:kinectwall"
+        xmlns:kd="clr-namespace:KinectData"
         xmlns:opengl="clr-namespace:OpenGL;assembly=OpenGL.Net.WinForms"
         xmlns:opentk="clr-namespace:OpenTK;assembly=OpenTK.GLControl"
         mc:Ignorable="d"        
-        Title="MainWindow" Height="800" Width="1000" Loaded="Window_Loaded">
+        Title="MainWindow" Height="800" Width="1200" Loaded="Window_Loaded">
     <Window.Resources>
         <ResourceDictionary>
             <DataTemplate x:Key="BulletDraw" DataType="{x:Type local:BulletDebugDraw}">
@@ -19,6 +20,12 @@
                     <CheckBox IsChecked="{Binding IsChecked}"/>
                     <Label VerticalAlignment="Center" Grid.Column="1" Content="{Binding Name}" />
                 </Grid>
+            </DataTemplate>
+            <DataTemplate x:Key="JointLims" DataType="{x:Type kd:JointLimits}">
+                <StackPanel Orientation="Vertical" >
+                    <Label Content="{Binding jt}" />
+                    <Label Margin="10,0,0,0" Content="{Binding Range}" />
+                </StackPanel>
             </DataTemplate>
         </ResourceDictionary>
     </Window.Resources>
@@ -54,14 +61,16 @@
                 <ListBox ItemsSource="{Binding ToolNames}" SelectionMode="Single" Width="100" SelectionChanged="Toolbar_SelectionChanged" />
                 <ItemsControl ItemsSource="{Binding BulletDraw}" ItemTemplate="{StaticResource BulletDraw}" Grid.Row="2" />
             </Grid>
-            <Grid Grid.Column="2" Width="200" Background="LightGray">
+            <Grid Grid.Column="2" Width="400" Background="LightGray">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Label x:Name="SelectionId" />
-                    <TextBox x:Name="OutputLog" Grid.Row="1" TextWrapping="Wrap"
+                    <ItemsControl ItemsSource="{Binding JointLimits}" ItemTemplate="{StaticResource JointLims}"/>
+                    <TextBox x:Name="OutputLog" Grid.Row="2" TextWrapping="Wrap"
                               AcceptsReturn="True"
                               VerticalScrollBarVisibility="Visible" />
                 </Grid>

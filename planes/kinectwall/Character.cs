@@ -253,6 +253,7 @@ namespace kinectwall
             };
             public void SetBody(Body b, Matrix4 matWorld)
             {
+                return;
                 if (kinectJoint.HasValue)
                 {
                     JointNode jn = b.jointNodes[kinectJoint.Value];

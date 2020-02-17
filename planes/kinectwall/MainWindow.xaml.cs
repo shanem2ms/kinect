@@ -14,7 +14,7 @@ namespace kinectwall
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
 
         /// <summary>
@@ -223,33 +223,31 @@ namespace kinectwall
         Vector3 curPos = Vector3.Zero;
         int visibleBits = 3;
         KinectData.JointType jtSelected = 0;
+        Vector3 movement = Vector3.Zero;
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             //Quaternion qy = new Quaternion(Vector3.UnitY, yRot);
-            Matrix4 viewInv = this.viewMat.Inverted();
-            Vector3 zd = Vector3.TransformNormal(Vector3.UnitZ, viewInv).Normalized();
-            Vector3 xd = Vector3.TransformNormal(Vector3.UnitX, viewInv).Normalized();
-            Vector3 yd = Vector3.TransformNormal(Vector3.UnitY, viewInv).Normalized();
 
             switch (e.Key)
             {
                 case Key.W:
-                    curPos -= zd * 0.1f;
+                    movement.Z = -1;
                     break;
                 case Key.A:
-                    curPos -= xd * 0.1f;
+                    movement.X = -1;
                     break;
                 case Key.S:
-                    curPos += zd * 0.1f;
+                    movement.Z = 1;
                     break;
                 case Key.D:
-                    curPos += xd * 0.1f;
+                    movement.X = 1;
                     break;
                 case Key.Q:
-                    curPos += yd * 0.1f;
+                    movement.Y = 1;
                     break;
                 case Key.Z:
-                    curPos -= yd * 0.1f;
+                    movement.Y = -1;
                     break;
                 case Key.O:
                     framerate *= 2;
@@ -269,8 +267,27 @@ namespace kinectwall
                     break;
 
             }
-            glControl.Invalidate();
             base.OnKeyDown(e);
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.W:
+                case Key.S:
+                    movement.Z = 0;
+                    break;
+                case Key.A:
+                case Key.D:
+                    movement.X = 0;
+                    break;
+                case Key.Q:
+                case Key.Z:
+                    movement.Y = 0;
+                    break;
+            }
+                    base.OnKeyUp(e);
         }
 
         struct GLPixel
@@ -294,8 +311,19 @@ namespace kinectwall
         KinectData.Frame curFrame = null;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
+            Matrix4 viewInv = this.viewMat.Inverted();
+            Vector3 zd = Vector3.TransformNormal(Vector3.UnitZ, viewInv).Normalized();
+            Vector3 xd = Vector3.TransformNormal(Vector3.UnitX, viewInv).Normalized();
+            Vector3 yd = Vector3.TransformNormal(Vector3.UnitY, viewInv).Normalized();
+
+            curPos += (movement.X * xd + movement.Y * yd +
+                movement.Z * zd) * 0.05f;
+
             if (IsLive && liveBodies == null)
+            {
                 liveBodies = new KinectBody();
+                liveBodies.OnNewTrackedBody += LiveBodies_OnNewTrackedBody;
+            }
 
             if (IsLive)
                 curFrame = liveBodies.CurrentFrame;
@@ -341,6 +369,27 @@ namespace kinectwall
 
             glControl.SwapBuffers();
 
+        }
+
+        KinectBody.TrackedBody CurrentBody;
+        public KinectData.JointLimits []JointLimits { get => CurrentBody?.JLimits; }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        // Create the OnPropertyChanged method to raise the event
+        protected void OnPropertyChanged(string name)
+        {
+            PropertyChangedEventHandler handler = PropertyChanged;
+            if (handler != null)
+            {
+                handler(this, new PropertyChangedEventArgs(name));
+            }
+        }
+
+        private void LiveBodies_OnNewTrackedBody(object sender, KinectBody.TrackedBody e)
+        {
+            CurrentBody = e;
+            OnPropertyChanged("JointLimits");
         }
 
         object SelectedObject = null;

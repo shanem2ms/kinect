@@ -14,6 +14,8 @@ namespace kinectwall
         KinectSensor kinectSensor;
         BodyFrameReader bodyFrameReader;
 
+        public event EventHandler<TrackedBody> OnNewTrackedBody;
+
         public bool IsRecording = false;
 
         public KinectBody()
@@ -238,6 +240,7 @@ namespace kinectwall
             FaceTrack faceTrack = null;
             ulong trackingId;
             public List<Tuple<long, kd.Body>> bodyFrames = new List<Tuple<long, kd.Body>>();
+            public kd.JointLimits[] JLimits = kd.JointLimits.Build();
 
             public TrackedBody(ulong id)
             {
@@ -293,6 +296,7 @@ namespace kinectwall
                                 tb = new TrackedBody(b.TrackingId);
                                 tb.InitFaceTrack(this.kinectSensor);
                                 trackedBodies.Add(b.TrackingId, tb);
+                                OnNewTrackedBody?.Invoke(this, tb);
                             }
                             //App.WriteLine($"b [{i}] {b.TrackingId}");
                             kd.Body newBody = new kd.Body(null);
@@ -318,6 +322,12 @@ namespace kinectwall
                             newBody.joints = jointDict;
                             newBody.top.SetJoints(jointDict);
                             newBody.GetJointNodes();
+
+                            newBody.top.DrawNode((jn) =>
+                            {
+                                Quaternion q = jn.localMat.ExtractRotation();
+                                tb.JLimits[(int)jn.jt].ApplyQuaternion(q);
+                            });
 
                             if (frame == null)
                             {

@@ -75,6 +75,7 @@ namespace kinectwall
 
         public void SetTransform(Matrix4 t)
         {
+            worldMatrix = t;
             body.WorldTransform =
                 Utils.FromMat4(worldMatrix);
         }
