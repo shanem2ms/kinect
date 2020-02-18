@@ -95,6 +95,7 @@
     <Compile Include="GLMesh.cs" />
     <Compile Include="KinectBody.cs" />
     <Compile Include="Scene.cs" />
+    <Compile Include="SceneNode.cs" />
     <Page Include="KinectWall.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -187,6 +188,9 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Kinect.Face.x64">
       <Version>2.0.1410.19000</Version>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>12.0.3</Version>
     </PackageReference>
     <PackageReference Include="OpenGL.Net">
       <Version>0.8.4</Version>

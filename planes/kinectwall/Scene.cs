@@ -154,7 +154,7 @@ namespace kinectwall
                         rotMats[i] *
                         Matrix4.CreateTranslation(transvecs[i] * 5) *
                         Matrix4.CreateTranslation(new Vector3(0, 3.5f, 5));
-                    SimObjectMesh obj = new SimObjectMesh(matWorld, 0.0f, wall);
+                    SimObjectMesh obj = new SimObjectMesh($"wall{i}", matWorld, 0.0f, wall);
                     obj.objectInfo = new MeshInfo()
                     {
                         color = wallcolors[i],
@@ -179,7 +179,7 @@ namespace kinectwall
                     Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
                     BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
 
-                    SimObjectMesh obj = new SimObjectMesh(worldMat, 0.0f, boneTM);
+                    SimObjectMesh obj = new SimObjectMesh(jn.Name, worldMat, 0.0f, boneTM);
                     obj.CollisionGroup = 64;
                     Vector3 vecjoint = KinectData.PoseData.JointVals[(int)jn.jt];
 

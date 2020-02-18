@@ -2,12 +2,12 @@
 using System.Linq;
 using System.Collections.Generic;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.ComponentModel;
 using OpenTK.Graphics.ES30;
 using OpenTK;
 using System.Windows.Input;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace kinectwall
 {
@@ -503,6 +503,16 @@ namespace kinectwall
         {
             if (!isPlaying) frametime += framerate;
             else frametime -= new TimeSpan(0, 0, 0, 30).Ticks;
+        }
+
+        private void Export_JointLimits(object sender, RoutedEventArgs e)
+        {
+            string jsonLimits = JsonConvert.SerializeObject(CurrentBody.JLimits);
+            using (FileStream fs = new FileStream(@"jointlimits.json", FileMode.Create, FileAccess.Write))
+            {
+                StreamWriter sw = new StreamWriter(fs);
+                sw.Write(jsonLimits);
+            }
         }
     }
 

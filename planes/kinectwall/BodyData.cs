@@ -4,6 +4,7 @@ using System.Linq;
 using OpenTK;
 using System.IO;
 using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace KinectData
 {
@@ -207,7 +208,7 @@ namespace KinectData
 
 
 
-    public class JointNode
+    public class JointNode : Graph.SceneNode
     {
         public JointType jt;
         public Vector3 color;
@@ -218,6 +219,8 @@ namespace KinectData
 
         JointNode parent;
         public JointNode[] children;
+
+        public override IEnumerable<Graph.SceneNode> Nodes => children;
         public Matrix4 WorldMat => localMat * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
         public JointNode Parent => parent;
@@ -435,9 +438,10 @@ namespace KinectData
                 Matrix4.CreateTranslation(pi);
         }
 
-        public JointNode() { }
+        public JointNode(JointType _jt) : base(_jt.ToString()) { jt = _jt;  }
 
-        public JointNode(JointNode left, JointNode right, float interpVal)
+        public JointNode(JointNode left, JointNode right, float interpVal) :
+            base(left.Name)
         {
             boneThickness = Lerp(right.boneThickness, left.boneThickness, interpVal);
             jointThickness = Lerp(right.jointThickness, left.jointThickness, interpVal);
@@ -460,66 +464,57 @@ namespace KinectData
 
         public static JointNode MakeBodyDef()
         {
-            JointNode jn = new JointNode()
+            JointNode jn = new JointNode(JointType.SpineBase)
             {
-                jt = JointType.SpineBase,
                 boneThickness = 15f,
                 color = new Vector3(0.0f, 1.0f, 0.0f),
                 children = new JointNode[] {
-                    new JointNode()
+                    new JointNode(JointType.SpineMid)
                     {
-                        jt = JointType.SpineMid,
                         boneThickness = 15f,
                         color = new Vector3(0.6f, 0.6f, 0.6f),
                         children = new JointNode[]
                         {
-                            new JointNode()
+                            new JointNode(JointType.SpineShoulder)
                             {
-                                jt = JointType.SpineShoulder,
                                 boneThickness = 15f,
                                 color = new Vector3(0.7f, 0.7f, 0.7f),
                                 children = new JointNode[]
                                 {
-                                    new JointNode()
+                                    new JointNode(JointType.Neck)
                                     {
-                                        jt = JointType.Neck,
                                         boneThickness = 10f,
                                         color = new Vector3(0.8f, 0.8f, 0.8f),
                                         children = new JointNode[]
                                         {
-                                            new JointNode()
+                                            new JointNode(JointType.Head)
                                             {
                                                 boneThickness = 8f,
-                                                jt = JointType.Head,
                                                 color = new Vector3(0.9f, 0.9f, 0.9f),
                                                 children = new JointNode[]
                                                 {
                                                 }
                                             },
-                                            new JointNode()
+                                            new JointNode(JointType.ShoulderLeft)
                                             {
-                                                jt = JointType.ShoulderLeft,
                                                 boneThickness = 4f,
                                                 color = new Vector3(0.9f, 0.9f, 0f),
                                                 children = new JointNode[]
                                                 {
-                                                    new JointNode()
+                                                    new JointNode(JointType.ElbowLeft)
                                                     {
-                                                        jt = JointType.ElbowLeft,
                                                         boneThickness = 4f,
                                                         color = new Vector3(0.9f, 0.5f, 0f),
                                                         children = new JointNode[]
                                                         {
-                                                            new JointNode()
+                                                            new JointNode(JointType.WristLeft)
                                                             {
                                                                 color = new Vector3(0.9f, 0.25f, 0f),
                                                                 boneThickness = 4f,
-                                                                jt = JointType.WristLeft,
                                                                 children = new JointNode[]
                                                                 {
-                                                                    new JointNode()
+                                                                    new JointNode(JointType.HandLeft)
                                                                     {
-                                                                        jt = JointType.HandLeft,
                                                                         boneThickness = 7f,
                                                                         color = new Vector3(0.9f, 0.05f, 0f),
                                                                         children = new JointNode[]
@@ -532,30 +527,26 @@ namespace KinectData
                                                     }
                                                 }
                                             },
-                                            new JointNode()
+                                            new JointNode(JointType.ShoulderRight)
                                             {
-                                                jt = JointType.ShoulderRight,
                                                 boneThickness = 4f,
                                                 color = new Vector3(0f, 0.9f, 0.9f),
                                                 children = new JointNode[]
                                                 {
-                                                    new JointNode()
+                                                    new JointNode(JointType.ElbowRight)
                                                     {
-                                                        jt = JointType.ElbowRight,
                                                         boneThickness = 4f,
                                                         color = new Vector3(0f, 0.9f, 0.5f),
                                                         children = new JointNode[]
                                                         {
-                                                            new JointNode()
+                                                            new JointNode(JointType.WristRight)
                                                             {
-                                                                jt = JointType.WristRight,
                                                                 boneThickness = 4f,
                                                                 color = new Vector3(0f, 0.9f, 0.25f),
                                                                 children = new JointNode[]
                                                                 {
-                                                                    new JointNode()
+                                                                    new JointNode(JointType.HandRight)
                                                                     {
-                                                                        jt = JointType.HandRight,
                                                                         boneThickness = 7f,
                                                                         color = new Vector3(0f, 0.9f, 0.05f),
                                                                         children = new JointNode[]
@@ -575,30 +566,26 @@ namespace KinectData
                             }
                         }
                     },
-                    new JointNode()
+                    new JointNode(JointType.HipLeft)
                     {
-                        jt = JointType.HipLeft,
                         boneThickness = 10f,
                         color = new Vector3(0.9f, 0f, 0.9f),
                         children = new JointNode[]
                         {
-                            new JointNode()
+                            new JointNode(JointType.KneeLeft)
                             {
-                                jt = JointType.KneeLeft,
                                 boneThickness = 5f,
                                 color = new Vector3(0.9f, 0f, 0.65f),
                                 children = new JointNode[]
                                 {
-                                    new JointNode()
+                                    new JointNode(JointType.AnkleLeft)
                                     {
-                                        jt = JointType.AnkleLeft,
                                         boneThickness = 5f,
                                         color = new Vector3(0.9f, 0f, 0.45f),
                                         children = new JointNode[]
                                         {
-                                            new JointNode()
+                                            new JointNode(JointType.FootLeft)
                                             {
-                                                jt = JointType.FootLeft,
                                                 boneThickness = 5f,
                                                 color = new Vector3(0.9f, 0f, 0.25f),
                                                 children = new JointNode[]
@@ -611,30 +598,26 @@ namespace KinectData
                             }
                         }
                     },
-                    new JointNode()
+                    new JointNode(JointType.HipRight)
                     {
-                        jt = JointType.HipRight,
                         boneThickness = 10f,
                         color = new Vector3(0.5f, 0.9f, 0.9f),
                         children = new JointNode[]
                         {
-                            new JointNode()
+                            new JointNode(JointType.KneeRight)
                             {
-                                jt = JointType.KneeRight,
                                 boneThickness = 5f,
                                 color = new Vector3(0.5f, 0.9f, 0.65f),
                                 children = new JointNode[]
                                 {
-                                    new JointNode()
+                                    new JointNode(JointType.AnkleRight)
                                     {
-                                        jt = JointType.AnkleRight,
                                         boneThickness = 5f,
                                         color = new Vector3(0.5f, 0.9f, 0.45f),
                                         children = new JointNode[]
                                         {
-                                            new JointNode()
+                                            new JointNode(JointType.FootRight)
                                             {
-                                                jt = JointType.FootRight,
                                                 boneThickness = 5f,
                                                 color = new Vector3(0.5f, 0.9f, 0.25f),
                                                 children = new JointNode[]
@@ -879,6 +862,27 @@ namespace KinectData
         }
     }
 
+    public class Vector3Converter : JsonConverter<Vector3>
+    {
+        public override Vector3 ReadJson(JsonReader reader, Type objectType, Vector3 existingValue, bool hasExistingValue, JsonSerializer serializer)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void WriteJson(JsonWriter writer, Vector3 value, JsonSerializer serializer)
+        {
+            writer.WriteStartObject();
+            writer.WritePropertyName("X");
+            writer.WriteValue(value.X);
+            writer.WritePropertyName("Y");
+            writer.WriteValue(value.Y);
+            writer.WritePropertyName("Z");
+            writer.WriteValue(value.Z);
+            writer.WriteEndObject();
+        }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
     public class JointLimits : kinectwall.BaseNotifier
     {
         private static Vector3 QToEuler(Quaternion q)
@@ -897,10 +901,16 @@ namespace KinectData
             return limits;
         }
 
-        public KinectData.JointType jt { get; }
+        [JsonProperty]
+        public JointType jt { get; }
         Vector3 minVals = new Vector3(1, 1, 1);
+
+        [JsonProperty]
+        [JsonConverter(typeof(Vector3Converter))]
         public Vector3 MinVals => minVals;
         Vector3 maxVals = new Vector3(-1, -1, -1);
+        [JsonProperty]
+        [JsonConverter(typeof(Vector3Converter))]
         public Vector3 MaxVals => maxVals;
         const float PiInv = 1.0f / (float)Math.PI;
 

@@ -22,10 +22,15 @@
                 </Grid>
             </DataTemplate>
             <DataTemplate x:Key="JointLims" DataType="{x:Type kd:JointLimits}">
-                <StackPanel Orientation="Vertical" >
-                    <Label Content="{Binding jt}" />
-                    <Label Margin="10,0,0,0" Content="{Binding Range}" />
-                </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="{Binding jt}" />
+                    <Label Grid.Column="2" Content="{Binding Range}" />
+                </Grid>
             </DataTemplate>
         </ResourceDictionary>
     </Window.Resources>
@@ -41,6 +46,8 @@
             <Rectangle Width="10" Fill="Gray"/>
             <ToggleButton Content="Live" Margin="5" IsChecked="{Binding Path=IsLive}"/>
             <ToggleButton Content="Rec" Margin="5" IsChecked="{Binding Path=IsRecording}"/>
+            <Rectangle Width="10" Fill="Gray"/>
+            <Button Margin="5" Content="Export JL" Click="Export_JointLimits" />
         </StackPanel>
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
