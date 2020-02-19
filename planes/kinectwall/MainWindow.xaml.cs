@@ -55,6 +55,8 @@ namespace kinectwall
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
 
+        KinectData.Container sceneRoot = new KinectData.Container("root");
+
         public enum Tools
         {
             Camera,
@@ -183,6 +185,9 @@ namespace kinectwall
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            KinectData.Body body = KinectData.BodyData.ReferenceBody();
+            sceneRoot.Children.Add(body);
+
             bulletSimulation = new BulletSimulation();
             pickProgram = GLObjects.Program.FromFiles("Pick.vert", "Pick.frag");
             if (App.DepthFile != null)
@@ -332,7 +337,7 @@ namespace kinectwall
                     (frametime % bodyTimeLength));
 
             if (!scene.IsInitialized)
-                scene.Init(bulletSimulation, curFrame);
+                scene.Init(bulletSimulation, sceneRoot);
             else
                 scene.SetBodyFrame(curFrame);
 

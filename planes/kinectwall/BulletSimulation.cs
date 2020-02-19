@@ -39,13 +39,13 @@ namespace kinectwall
 
     }
 
-    class SimObjectMesh : Graph.SceneNode
+    class SimObjectMesh : KinectData.SceneNode
     {
         ConvexTriangleMeshShape shape;
         RigidBody body;
         Matrix4 worldMatrix;
 
-        public override IEnumerable<Graph.SceneNode> Nodes => null;
+        public override IEnumerable<KinectData.SceneNode> Nodes => null;
 
         public SimObjectMesh(string name, Matrix4 initialPos, float mass, TriangleMesh tm) :
             base(name)

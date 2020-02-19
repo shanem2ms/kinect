@@ -299,7 +299,7 @@ namespace kinectwall
                                 OnNewTrackedBody?.Invoke(this, tb);
                             }
                             //App.WriteLine($"b [{i}] {b.TrackingId}");
-                            kd.Body newBody = new kd.Body(null);
+                            kd.Body newBody = new kd.Body("live", null);
                             newBody.top = kd.JointNode.MakeBodyDef();
                             Dictionary<kd.JointType, kd.Joint> jointDict = new Dictionary<kd.JointType, kd.Joint>();
                             newBody.joints = new Dictionary<kd.JointType, kd.Joint>();

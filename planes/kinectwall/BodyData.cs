@@ -24,6 +24,15 @@ namespace KinectData
         public Tuple<long, long> TimeRange => new Tuple<long, long>(frames[0].timeStamp,
             frames.Last().timeStamp);
 
+        public static Body ReferenceBody()
+        {
+            Body b = new Body("refbody", null);
+            b.top = JointNode.MakeBodyDef();
+            b.lean = Vector2.Zero;
+            b.GetJointNodes();
+            return b;
+        }
+
         public BodyData(string name)
         {
             FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
@@ -45,7 +54,7 @@ namespace KinectData
                     readPtr += sizeof(bool);
                     if (isTracked)
                     {
-                        Body nb = new Body(this);
+                        Body nb = new Body($"{name}[{i}]", this);
 
                         nb.lean.X = BitConverter.ToSingle(bytes, readPtr);
                         readPtr += sizeof(float);
@@ -208,7 +217,7 @@ namespace KinectData
 
 
 
-    public class JointNode : Graph.SceneNode
+    public class JointNode : SceneNode
     {
         public JointType jt;
         public Vector3 color;
@@ -220,7 +229,7 @@ namespace KinectData
         JointNode parent;
         public JointNode[] children;
 
-        public override IEnumerable<Graph.SceneNode> Nodes => children;
+        public override IEnumerable<SceneNode> Nodes => children;
         public Matrix4 WorldMat => localMat * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
         public JointNode Parent => parent;
@@ -771,7 +780,7 @@ namespace KinectData
         public TrackingState TrackingState;
     }
 
-    public class Body
+    public class Body : SceneNode
     {
         public Dictionary<JointType, Joint> joints =
             new Dictionary<JointType, Joint>();
@@ -785,9 +794,13 @@ namespace KinectData
         public Vector2 lean;
         public FaceMesh face;
 
-        public Body(BodyData bd) { bodyData = bd; }
+        public override IEnumerable<SceneNode> Nodes => new JointNode[1] { top };
 
-        public Body(Body left, Body right, float interpVal)
+        public Body(string name, BodyData bd):
+            base(name) { bodyData = bd; }
+
+        public Body(Body left, Body right, float interpVal) :
+            base(left.Name)
         {
             bodyData = left.bodyData;
             joints = left.joints;

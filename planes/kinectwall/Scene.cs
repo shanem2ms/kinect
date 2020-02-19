@@ -108,8 +108,11 @@ namespace kinectwall
             firstDbgDraw = false;
         }
 
-        public void Init(BulletSimulation simulation, KinectData.Frame bodyFrame)
+        KinectData.SceneNode rootNode;
+
+        public void Init(BulletSimulation simulation, KinectData.SceneNode root)
         {
+            this.rootNode = root;
             simulation.DebugDrawLine = DebugDrawLine;
             {
                 Vector3[] transvecs = new Vector3[6]
@@ -169,8 +172,8 @@ namespace kinectwall
                 simDict = new Dictionary<KinectData.JointNode, SimObjectMesh>();
 
             List<ConstraintDef> constraints = new List<ConstraintDef>();
-            foreach (var body in bodyFrame.bodies.Values)
             {
+                KinectData.Body body = rootNode["refbody"] as KinectData.Body;
                 body.top.DrawNode((jn) =>
                 {
                     Matrix4 worldMat =
