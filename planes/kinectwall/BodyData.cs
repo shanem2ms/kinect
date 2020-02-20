@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using OpenTK;
 using System.IO;
@@ -227,9 +228,9 @@ namespace KinectData
         public float jointThickness = 2.0f;
 
         JointNode parent;
-        public JointNode[] children;
+        public ObservableCollection<JointNode> children;
 
-        public override IEnumerable<SceneNode> Nodes => children;
+        public override ObservableCollection<SceneNode> Nodes => children;
         public Matrix4 WorldMat => localMat * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
         public JointNode Parent => parent;
@@ -794,7 +795,9 @@ namespace KinectData
         public Vector2 lean;
         public FaceMesh face;
 
-        public override IEnumerable<SceneNode> Nodes => new JointNode[1] { top };
+        public override ObservableCollection<SceneNode> Nodes => new
+            ObservableCollection<SceneNode>()
+        { top };
 
         public Body(string name, BodyData bd):
             base(name) { bodyData = bd; }

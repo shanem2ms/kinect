@@ -3,6 +3,7 @@ using BulletSharp.Math;
 using OpenTK;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace kinectwall
 {
@@ -45,7 +46,7 @@ namespace kinectwall
         RigidBody body;
         Matrix4 worldMatrix;
 
-        public override IEnumerable<KinectData.SceneNode> Nodes => null;
+        public override ObservableCollection<KinectData.SceneNode> Nodes => null;
 
         public SimObjectMesh(string name, Matrix4 initialPos, float mass, TriangleMesh tm) :
             base(name)

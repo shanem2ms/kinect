@@ -55,6 +55,7 @@ namespace kinectwall
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
 
+        public KinectData.SceneNode SceneRoot { get => sceneRoot; }
         KinectData.Container sceneRoot = new KinectData.Container("root");
 
         public enum Tools
@@ -86,6 +87,8 @@ namespace kinectwall
             this.displayWidth = 1024;
             this.displayHeight = 768;
 
+            sceneRoot.Children.Add(new KinectData.Container("hello"));
+            sceneRoot.Children.Add(new KinectData.Container("world"));
             // use the window object as the view model in this simple example
             this.DataContext = this;
 
@@ -188,6 +191,7 @@ namespace kinectwall
             KinectData.Body body = KinectData.BodyData.ReferenceBody();
             sceneRoot.Children.Add(body);
 
+            OnPropertyChanged("SceneRoot");
             bulletSimulation = new BulletSimulation();
             pickProgram = GLObjects.Program.FromFiles("Pick.vert", "Pick.frag");
             if (App.DepthFile != null)
@@ -399,24 +403,6 @@ namespace kinectwall
 
         object SelectedObject = null;
 
-        void RefreshSelection()
-        {
-            if (SelectedObject != null)
-            {
-                if (SelectedObject is KinectData.JointNode)
-                {
-                    KinectData.JointNode jn = SelectedObject as KinectData.JointNode;
-                    SelectionId.Content = jn.jt.ToString();
-                }
-                else 
-                {
-                    SelectionId.Content = SelectedObject.ToString();
-                }
-            }
-            else
-                SelectionId.Content = "";
-        }
-
         void DoPick()
         {
             GL.Clear(ClearBufferMask.ColorBufferBit);
@@ -448,7 +434,6 @@ namespace kinectwall
                 SelectedObject = pickObjects[idx];
             else
                 SelectedObject = null;
-            RefreshSelection();
         }
 
         private void glControl_Resize(object sender, EventArgs e)

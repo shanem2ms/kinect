@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace KinectData
 {
-    public abstract class SceneNode
+    public class SceneNode
     {
         protected string name;
         public string Name => name;
-        public abstract IEnumerable<SceneNode> Nodes { get; }
+        public virtual ObservableCollection<SceneNode> Nodes { get => null; }
 
         public SceneNode this[string name]
         {
@@ -25,13 +26,13 @@ namespace KinectData
 
     public class Container : SceneNode
     {
-        public override IEnumerable<SceneNode> Nodes => Children;
+        public override ObservableCollection<SceneNode> Nodes => Children;
 
         public Container(string name) :
             base(name)
         {
 
         }
-        public List<SceneNode> Children = new List<SceneNode>();
+        public ObservableCollection<SceneNode> Children = new ObservableCollection<SceneNode>();
     }
 }

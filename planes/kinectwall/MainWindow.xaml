@@ -11,6 +11,7 @@
         Title="MainWindow" Height="800" Width="1200" Loaded="Window_Loaded">
     <Window.Resources>
         <ResourceDictionary>
+           
             <DataTemplate x:Key="BulletDraw" DataType="{x:Type local:BulletDebugDraw}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -75,8 +76,15 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Label x:Name="SelectionId" />
-                    <ItemsControl ItemsSource="{Binding JointLimits}" ItemTemplate="{StaticResource JointLims}"/>
+                    <TreeView ItemsSource="{Binding SceneRoot.Nodes}" >
+                        <TreeView.Resources>
+                            <HierarchicalDataTemplate DataType="{x:Type kd:SceneNode}" 
+                                                      ItemsSource="{Binding Path=Nodes}">
+                                <Label Content="{Binding Name}" />
+                            </HierarchicalDataTemplate>
+                        </TreeView.Resources>
+                    </TreeView>
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding JointLimits}" ItemTemplate="{StaticResource JointLims}"/>
                     <TextBox x:Name="OutputLog" Grid.Row="2" TextWrapping="Wrap"
                               AcceptsReturn="True"
                               VerticalScrollBarVisibility="Visible" />
