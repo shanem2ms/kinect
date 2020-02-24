@@ -22,75 +22,7 @@ using System.Drawing.Imaging;
 ///         Apply Global Orientation Checked   
 /// </summary>
 namespace kinectwall
-{
-    struct JointTransform
-    {
-        public Vector3 pos;
-        public Vector3 scl;
-        public Quaternion rot;
-
-        public static JointTransform Identity = new JointTransform()
-        {
-            pos = Vector3.Zero,
-            scl = Vector3.One,
-            rot = Quaternion.Identity
-        };
-
-        public Matrix4 Value
-        {
-            get => Matrix4.CreateScale(scl) *
-                    Matrix4.CreateFromQuaternion(rot) *
-                    Matrix4.CreateTranslation(pos);
-            set
-            {
-                Vector3 vscl = value.ExtractScale();
-                if (vscl.X != 1 && Math.Abs(vscl.X - 1) < 1e-3)
-                    vscl.X = 1;
-                if (vscl.Y != 1 && Math.Abs(vscl.Y - 1) < 1e-3)
-                    vscl.Y = 1;
-                if (vscl.Z != 1 && Math.Abs(vscl.Z - 1) < 1e-3)
-                    vscl.Z = 1;
-                this.scl = vscl;
-
-                Quaternion vrot = value.ExtractRotation();
-                if (vrot.X != 0 && Math.Abs(vrot.X) < 1e-3)
-                    vrot.X = 0;
-                if (vrot.Y != 0 && Math.Abs(vrot.Y) < 1e-3)
-                    vrot.Y = 0;
-                if (vrot.Z != 0 && Math.Abs(vrot.Z) < 1e-3)
-                    vrot.Z = 0;
-                if (vrot.W != 0 && Math.Abs(vrot.W) < 1e-3)
-                    vrot.W = 0;
-                if (vrot.W != 1 && Math.Abs(1 - vrot.W) < 1e-3)
-                    vrot.W = 1;
-                rot = vrot;
-
-                Vector3 vpos = value.ExtractTranslation();
-                if (vpos.X != 0 && Math.Abs(vpos.X) < 1e-3)
-                    vpos.X = 0;
-                if (vpos.Y != 0 && Math.Abs(vpos.Y) < 1e-3)
-                    vpos.Y = 0;
-                if (vpos.Z != 0 && Math.Abs(vpos.Z) < 1e-3)
-                    vpos.Z = 0;
-                this.pos = vpos;
-            }
-        }
-
-        public override string ToString()
-        {
-            string outstr = "";
-            if (pos != Vector3.Zero) outstr += "T: " + pos + " ";
-            if (scl != Vector3.One) outstr += "S: " + scl + " ";
-            if (rot != Quaternion.Identity)
-            {
-                Vector4 axisang = rot.ToAxisAngle();
-                axisang.W *= 180.0f / (float)Math.PI;
-                outstr += "R: " + axisang;
-            }
-            return outstr;
-        }
-    }
-
+{  
     class Character
     {
         public class Bone
@@ -128,15 +60,15 @@ namespace kinectwall
             public Node parent = null;
             public string name;
             public List<Node> children;
-            public JointTransform bindTransform;
+            public JointTransform bindTransform = JointTransform.Identity;
             JointTransform overrideTransform;
             bool useOverride = false;
             public JointType? kinectJoint;
             public Vector3 color;
             public List<Key>[] keys = new List<Key>[3];
 
-            public Matrix4 Transform => useOverride ? overrideTransform.Value : 
-                bindTransform.Value;
+            public Matrix4 Transform => useOverride ? overrideTransform.M4 : 
+                bindTransform.M4;
 
             public void OutputNodeDbg(int level)
             {
@@ -257,7 +189,7 @@ namespace kinectwall
                 if (kinectJoint.HasValue)
                 {
                     JointNode jn = b.jointNodes[kinectJoint.Value];
-                    Quaternion q = jn.localMat.ExtractRotation();
+                    Quaternion q = jn.LocalTransform.rot;
                     PoseData.Joint pj = PoseData.JointsIdx[(int)jn.jt];
                     Quaternion dfp = q * pj.rot.Inverted();
 
@@ -357,7 +289,7 @@ namespace kinectwall
                 {
                     Matrix4 m1 = matw * b.node.WorldTransform.Inverted();
                     JointTransform j1 = new JointTransform();
-                    j1.Value = m1;
+                    j1.M4 = m1;
                     Debug.WriteLine($"   idx={bidx++} name={b.node.name} mat={b.offsetMat} calculated={j1}");
                 }
             }
@@ -531,7 +463,7 @@ namespace kinectwall
         {
             Node n = new Node();
             n.name = node.Name;
-            n.bindTransform.Value = FromMatrix(node.Transform);
+            n.bindTransform.M4 = FromMatrix(node.Transform);
             n.kinectJoint = GetKinectJoint(n.name);
             n.color = GetJointColor(n.kinectJoint);
 
@@ -596,7 +528,7 @@ namespace kinectwall
                         {
                             Matrix4 mat = FromMatrix(b.OffsetMatrix);
                             JointTransform jt = new JointTransform();
-                            jt.Value = mat;
+                            jt.M4 = mat;
                             Bone bone = new Bone()
                             {
                                 meshIdx = index,
@@ -631,7 +563,7 @@ namespace kinectwall
 
         public void SetBody(Body body)
         {
-            Root.bindTransform.pos = body.top.localMat.ExtractTranslation();
+            Root.bindTransform.pos = body.top.LocalTransform.pos;
             Vector3 bleftFoot = body.jointNodes[JointType.FootLeft].WorldMat.ExtractTranslation();
             Vector3 brightFoot = body.jointNodes[JointType.FootRight].WorldMat.ExtractTranslation();
             Vector3 bfootPos = (bleftFoot + brightFoot) * 0.5f;

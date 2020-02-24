@@ -323,9 +323,9 @@ namespace kinectwall
                             newBody.top.SetJoints(jointDict);
                             newBody.GetJointNodes();
 
-                            newBody.top.DrawNode((jn) =>
+                            newBody.top.OnSceneNode<KinectData.JointNode>((jn) =>
                             {
-                                Quaternion q = jn.localMat.ExtractRotation();
+                                Quaternion q = jn.LocalTransform.rot;
                                 tb.JLimits[(int)jn.jt].ApplyQuaternion(q);
                             });
 

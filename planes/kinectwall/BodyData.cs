@@ -9,6 +9,135 @@ using Newtonsoft.Json;
 
 namespace KinectData
 {
+    public class JointTransform
+    {
+        public Vector3 pos;
+        public Vector3 scl;
+        public Quaternion rot;
+
+        public static JointTransform Identity { get => new JointTransform()
+        {
+            pos = Vector3.Zero,
+            scl = Vector3.One,
+            rot = Quaternion.Identity
+        };
+        }
+
+        public JointTransform()
+        {
+
+        }
+
+        public JointTransform(Matrix4 mat)
+        {
+            pos = Vector3.Zero;
+            scl = Vector3.One;
+            rot = Quaternion.Identity;
+            SetFromMatrix(mat);
+        }
+
+
+        public Vector3 EulerRot
+        {
+            get => rot.ToEuler(); set => rot = Quaternion.FromEulerAngles
+                (value.X, value.Y, value.Z);
+        }
+
+        static float DToR(float d)
+        {
+            return (float)(d * Math.PI / 180.0);
+        }
+
+        static float RToD(float r)
+        {
+            return (float)(r * 180.0 / Math.PI);
+        }
+        public float RotX
+        {
+            get => RToD(EulerRot.X); set
+            {
+                Vector3 e = EulerRot;
+                EulerRot = new Vector3(DToR(value), e.Y, e.Z);
+            }
+        }
+
+        public float RotY
+        {
+            get => RToD(EulerRot.Y); set
+            {
+                Vector3 e = EulerRot;
+                EulerRot = new Vector3(e.X, DToR(value), e.Z);
+            }
+        }
+
+        public float RotZ
+        {
+            get => RToD(EulerRot.Z); set
+            {
+                Vector3 e = EulerRot;
+                EulerRot = new Vector3(e.X, e.Y, DToR(value));
+            }
+        }
+
+        void SetFromMatrix(Matrix4 value)
+        {
+            Vector3 vscl = value.ExtractScale();
+            if (vscl.X != 1 && Math.Abs(vscl.X - 1) < 1e-3)
+                vscl.X = 1;
+            if (vscl.Y != 1 && Math.Abs(vscl.Y - 1) < 1e-3)
+                vscl.Y = 1;
+            if (vscl.Z != 1 && Math.Abs(vscl.Z - 1) < 1e-3)
+                vscl.Z = 1;
+            this.scl = vscl;
+
+            Quaternion vrot = value.ExtractRotation();
+            if (vrot.X != 0 && Math.Abs(vrot.X) < 1e-3)
+                vrot.X = 0;
+            if (vrot.Y != 0 && Math.Abs(vrot.Y) < 1e-3)
+                vrot.Y = 0;
+            if (vrot.Z != 0 && Math.Abs(vrot.Z) < 1e-3)
+                vrot.Z = 0;
+            if (vrot.W != 0 && Math.Abs(vrot.W) < 1e-3)
+                vrot.W = 0;
+            if (vrot.W != 1 && Math.Abs(1 - vrot.W) < 1e-3)
+                vrot.W = 1;
+            rot = vrot;
+
+            Vector3 vpos = value.ExtractTranslation();
+            if (vpos.X != 0 && Math.Abs(vpos.X) < 1e-3)
+                vpos.X = 0;
+            if (vpos.Y != 0 && Math.Abs(vpos.Y) < 1e-3)
+                vpos.Y = 0;
+            if (vpos.Z != 0 && Math.Abs(vpos.Z) < 1e-3)
+                vpos.Z = 0;
+            this.pos = vpos;
+        }
+        public Matrix4 M4
+        {
+            get => Matrix4.CreateScale(scl) *
+                    Matrix4.CreateFromQuaternion(rot) *
+                    Matrix4.CreateTranslation(pos);
+            set
+            {
+                SetFromMatrix(value);
+            }
+        }
+
+        public override string ToString()
+        {
+            string outstr = "";
+            if (pos != Vector3.Zero) outstr += "T: " + pos + " ";
+            if (scl != Vector3.One) outstr += "S: " + scl + " ";
+            if (rot != Quaternion.Identity)
+            {
+                Vector4 axisang = rot.ToAxisAngle();
+                axisang.W *= 180.0f / (float)Math.PI;
+                outstr += "R: " + axisang;
+            }
+            return outstr;
+        }
+    }
+
     public class BodyData
     {
         public static JointType[] SpineToHeadJoints = {
@@ -30,7 +159,9 @@ namespace KinectData
             Body b = new Body("refbody", null);
             b.top = JointNode.MakeBodyDef();
             b.lean = Vector2.Zero;
-            b.GetJointNodes();
+
+            b.top.SetJoints(PoseData.JointsIdx);
+            b.top.SetJointLengths(Matrix4.Identity);
             return b;
         }
 
@@ -142,7 +273,7 @@ namespace KinectData
                     {
                         double ms = (f.timeStamp - prevLeftHandTime) * msPerTicks;
                         double leftToLeft = (j.Position - prevLeftHand).Length / ms * 1000;
-                        
+
                         ms = (f.timeStamp - prevRightHandTime) * msPerTicks;
                         double leftToRight = (j.Position - prevRightHand).Length / ms * 1000;
                         if (leftToLeft > leftToRight)
@@ -222,30 +353,38 @@ namespace KinectData
     {
         public JointType jt;
         public Vector3 color;
-        public float jointLength;
-        public Matrix4 localMat;
-        public float boneThickness = 1.0f;
-        public float jointThickness = 2.0f;
+        public float JointLength { get; set; }
+        public JointTransform LocalTransform { get; set; }
+        public float BoneThickness { get; set; } = 1.0f;
+        public float JointThickness { get; set; } = 2.0f;
 
         JointNode parent;
-        public ObservableCollection<JointNode> children;
+        public ObservableCollection<SceneNode> children;
 
         public override ObservableCollection<SceneNode> Nodes => children;
-        public Matrix4 WorldMat => localMat * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
+        public Matrix4 WorldMat => LocalTransform.M4 * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
         public JointNode Parent => parent;
 
-        public Vector3 OriginalWsPos;
-        public Quaternion OrigWsOrientation;
+        public Vector3 OriginalWsPos { get; set; }
+        public Quaternion OrigWsOrientation { get; set; }
         public Matrix3 origRotMat;
         public TrackingState Tracked;
 
+        public void AddNode(SceneNode node)
+        {
+            if (children == null)
+                children = new ObservableCollection<SceneNode>();
+            children.Add(node);
+        }
+
+
         public void DebugDebugInfo(int level)
         {
-            Quaternion q = localMat.ExtractRotation();
+            Quaternion q = LocalTransform.rot;
             Vector4 rotaxisang = q.ToAxisAngle();
             rotaxisang.W *= 180.0f / (float)Math.PI;
-            Debug.WriteLine(new string(' ', level * 2) + $"{jt} - rot={rotaxisang} trn={localMat.ExtractTranslation()}");
+            Debug.WriteLine(new string(' ', level * 2) + $"{jt} - rot={rotaxisang} trn={LocalTransform.pos}");
             if (children != null)
             {
                 foreach (JointNode cn in children)
@@ -278,7 +417,7 @@ namespace KinectData
                 jl = new List<float>();
                 jointLengths.Add(jt, jl);
             }
-            jl.Add(jointLength);
+            jl.Add(JointLength);
 
             if (this.children != null)
             {
@@ -312,6 +451,33 @@ namespace KinectData
             return val;
         }
 
+        public void SetJoints(PoseData.Joint []joints)
+        {
+            SetJointsRec(joints);
+            SetJointLengths(Matrix4.Identity);
+        }
+
+        void SetJointsRec(PoseData.Joint[] joints)
+        {
+            var pj = joints[(int)this.jt];
+            if (pj != null)
+            {
+                this.LocalTransform = new JointTransform(Matrix4.CreateFromQuaternion(pj.rot) *
+                    Matrix4.CreateTranslation(pj.trn));
+            }
+            else
+            {
+                this.LocalTransform = JointTransform.Identity;
+            }
+            if (this.children != null)
+            {
+                foreach (JointNode cn in this.children)
+                {
+                    cn.SetJointsRec(joints);
+                }
+            }
+        }
+
         public void SetJoints(Dictionary<JointType, Joint> jointPositions)
         {
             SetJointsRec(jointPositions, Matrix3.Identity, Matrix4.Identity);
@@ -320,8 +486,8 @@ namespace KinectData
             Dictionary<JointType, JointNode> allNodes = new Dictionary<JointType, JointNode>();
             GetAllJointNodes(allNodes);
 
-        }
-
+        }     
+        
         void SetJointsRec(Dictionary<JointType, Joint> jointPositions, Matrix3 parentRot, Matrix4 parentWorldMat)
         {
             Matrix4 wInv = parentWorldMat.Inverted();
@@ -340,18 +506,18 @@ namespace KinectData
                 Vector3 xDir = Vector3.Cross(jointDir, Vector3.UnitZ);
                 Vector3 zDir = Vector3.Cross(xDir, jointDir);
                 Matrix3 matrix3 = new Matrix3(xDir, jointDir, zDir);
-                this.localMat = new Matrix4(matrix3) *
-                    Matrix4.CreateTranslation(position);
+                this.LocalTransform = new JointTransform(new Matrix4(matrix3) *
+                    Matrix4.CreateTranslation(position));
             }
             else
             {
                 Matrix3 localRot =
                     this.origRotMat * parentRot.Inverted();
-                this.localMat = new Matrix4(localRot) *
-                    Matrix4.CreateTranslation(position);
+                this.LocalTransform = new JointTransform(new Matrix4(localRot) *
+                    Matrix4.CreateTranslation(position));
             }
 
-            Matrix4 worldMat = localMat * parentWorldMat;
+            Matrix4 worldMat = LocalTransform.M4 * parentWorldMat;
 
             if (this.children != null)
             {
@@ -377,13 +543,13 @@ namespace KinectData
         public void SetJointLengths(Matrix4 parentWorldMat)
         {
             Vector3 parentWp = Vector3.TransformPosition(Vector3.Zero, parentWorldMat);
-            Matrix4 worldMat = localMat * parentWorldMat;
+            Matrix4 worldMat = LocalTransform.M4 * parentWorldMat;
 
             if (parent != null)
             {
                 Vector3 connectionPos =
                     Vector3.TransformPosition(parentWp, worldMat.Inverted());
-                jointLength = connectionPos.Length;
+                JointLength = connectionPos.Length;
             }
 
             if (this.children != null)
@@ -406,19 +572,6 @@ namespace KinectData
                 }
             }
         }
-
-        public void DrawNode(Action<JointNode> drawCallback)
-        {
-            drawCallback(this);
-            if (this.children != null)
-            {
-                foreach (JointNode cn in children)
-                {
-                    cn.DrawNode(drawCallback);
-                }
-            }
-        }
-
 
         static float Lerp(float l, float r, float i)
         {
@@ -447,16 +600,25 @@ namespace KinectData
             return Matrix4.CreateFromQuaternion(qi) *
                 Matrix4.CreateTranslation(pi);
         }
+        static JointTransform Lerp(JointTransform l, JointTransform r, float i)
+        {
+            return new JointTransform()
+            {
+                pos = Lerp(l.pos, r.pos, i),
+                rot = Lerp(l.rot, r.rot, i),
+                scl = Lerp(l.scl, r.scl, i)
+            };
+        }
 
-        public JointNode(JointType _jt) : base(_jt.ToString()) { jt = _jt;  }
+        public JointNode(JointType _jt) : base(_jt.ToString()) { jt = _jt; }
 
         public JointNode(JointNode left, JointNode right, float interpVal) :
             base(left.Name)
         {
-            boneThickness = Lerp(right.boneThickness, left.boneThickness, interpVal);
-            jointThickness = Lerp(right.jointThickness, left.jointThickness, interpVal);
-            localMat = Lerp(left.localMat, right.localMat, interpVal);
-            jointLength = Lerp(left.jointLength, right.jointLength, interpVal);
+            BoneThickness = Lerp(right.BoneThickness, left.BoneThickness, interpVal);
+            JointThickness = Lerp(right.JointThickness, left.JointThickness, interpVal);
+            LocalTransform = Lerp(left.LocalTransform, right.LocalTransform, interpVal);
+            JointLength = Lerp(left.JointLength, right.JointLength, interpVal);
             color = Lerp(left.color, right.color, interpVal);
             jt = left.jt;
             OrigWsOrientation = Lerp(left.OrigWsOrientation, right.OrigWsOrientation, interpVal);
@@ -464,11 +626,11 @@ namespace KinectData
             origRotMat = Lerp(left.origRotMat, right.origRotMat, interpVal);
             Tracked = left.Tracked;
 
-            children = new JointNode[left.children.Length];
-            for (int idx = 0; idx < children.Length; ++idx)
+            children = new ObservableCollection<SceneNode>();
+            for (int idx = 0; idx < left.children.Count; ++idx)
             {
-                children[idx] = new JointNode(left.children[idx], right.children[idx], interpVal);
-                children[idx].parent = this;
+                children[idx] = new JointNode((JointNode)left.children[idx], (JointNode)right.children[idx], interpVal);
+                (children[idx] as JointNode).parent = this;
             }
         }
 
@@ -476,60 +638,54 @@ namespace KinectData
         {
             JointNode jn = new JointNode(JointType.SpineBase)
             {
-                boneThickness = 15f,
+                BoneThickness = 15f,
                 color = new Vector3(0.0f, 1.0f, 0.0f),
-                children = new JointNode[] {
+                children = new ObservableCollection<SceneNode>{
                     new JointNode(JointType.SpineMid)
                     {
-                        boneThickness = 15f,
+                        BoneThickness = 15f,
                         color = new Vector3(0.6f, 0.6f, 0.6f),
-                        children = new JointNode[]
+                        children = new ObservableCollection<SceneNode>
                         {
                             new JointNode(JointType.SpineShoulder)
                             {
-                                boneThickness = 15f,
+                                BoneThickness = 15f,
                                 color = new Vector3(0.7f, 0.7f, 0.7f),
-                                children = new JointNode[]
+                                children = new ObservableCollection<SceneNode>
                                 {
                                     new JointNode(JointType.Neck)
                                     {
-                                        boneThickness = 10f,
+                                        BoneThickness = 10f,
                                         color = new Vector3(0.8f, 0.8f, 0.8f),
-                                        children = new JointNode[]
+                                        children = new ObservableCollection<SceneNode>
                                         {
                                             new JointNode(JointType.Head)
                                             {
-                                                boneThickness = 8f,
+                                                BoneThickness = 8f,
                                                 color = new Vector3(0.9f, 0.9f, 0.9f),
-                                                children = new JointNode[]
-                                                {
-                                                }
                                             },
                                             new JointNode(JointType.ShoulderLeft)
                                             {
-                                                boneThickness = 4f,
+                                                BoneThickness = 4f,
                                                 color = new Vector3(0.9f, 0.9f, 0f),
-                                                children = new JointNode[]
+                                                children = new ObservableCollection<SceneNode>
                                                 {
                                                     new JointNode(JointType.ElbowLeft)
                                                     {
-                                                        boneThickness = 4f,
+                                                        BoneThickness = 4f,
                                                         color = new Vector3(0.9f, 0.5f, 0f),
-                                                        children = new JointNode[]
+                                                        children = new ObservableCollection<SceneNode>
                                                         {
                                                             new JointNode(JointType.WristLeft)
                                                             {
                                                                 color = new Vector3(0.9f, 0.25f, 0f),
-                                                                boneThickness = 4f,
-                                                                children = new JointNode[]
+                                                                BoneThickness = 4f,
+                                                                children = new ObservableCollection<SceneNode>
                                                                 {
                                                                     new JointNode(JointType.HandLeft)
                                                                     {
-                                                                        boneThickness = 7f,
+                                                                        BoneThickness = 7f,
                                                                         color = new Vector3(0.9f, 0.05f, 0f),
-                                                                        children = new JointNode[]
-                                                                        {
-                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -539,29 +695,26 @@ namespace KinectData
                                             },
                                             new JointNode(JointType.ShoulderRight)
                                             {
-                                                boneThickness = 4f,
+                                                BoneThickness = 4f,
                                                 color = new Vector3(0f, 0.9f, 0.9f),
-                                                children = new JointNode[]
+                                                children = new ObservableCollection<SceneNode>
                                                 {
                                                     new JointNode(JointType.ElbowRight)
                                                     {
-                                                        boneThickness = 4f,
+                                                        BoneThickness = 4f,
                                                         color = new Vector3(0f, 0.9f, 0.5f),
-                                                        children = new JointNode[]
+                                                        children = new ObservableCollection<SceneNode>
                                                         {
                                                             new JointNode(JointType.WristRight)
                                                             {
-                                                                boneThickness = 4f,
+                                                                BoneThickness = 4f,
                                                                 color = new Vector3(0f, 0.9f, 0.25f),
-                                                                children = new JointNode[]
+                                                                children = new ObservableCollection<SceneNode>
                                                                 {
                                                                     new JointNode(JointType.HandRight)
                                                                     {
-                                                                        boneThickness = 7f,
+                                                                        BoneThickness = 7f,
                                                                         color = new Vector3(0f, 0.9f, 0.05f),
-                                                                        children = new JointNode[]
-                                                                        {
-                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -578,27 +731,27 @@ namespace KinectData
                     },
                     new JointNode(JointType.HipLeft)
                     {
-                        boneThickness = 10f,
+                        BoneThickness = 10f,
                         color = new Vector3(0.9f, 0f, 0.9f),
-                        children = new JointNode[]
+                        children = new ObservableCollection<SceneNode>
                         {
                             new JointNode(JointType.KneeLeft)
                             {
-                                boneThickness = 5f,
+                                BoneThickness = 5f,
                                 color = new Vector3(0.9f, 0f, 0.65f),
-                                children = new JointNode[]
+                                children = new ObservableCollection<SceneNode>
                                 {
                                     new JointNode(JointType.AnkleLeft)
                                     {
-                                        boneThickness = 5f,
+                                        BoneThickness = 5f,
                                         color = new Vector3(0.9f, 0f, 0.45f),
-                                        children = new JointNode[]
+                                        children = new ObservableCollection<SceneNode>
                                         {
                                             new JointNode(JointType.FootLeft)
                                             {
-                                                boneThickness = 5f,
+                                                BoneThickness = 5f,
                                                 color = new Vector3(0.9f, 0f, 0.25f),
-                                                children = new JointNode[]
+                                                children =
                                                 {
                                                 }
                                             }
@@ -610,29 +763,26 @@ namespace KinectData
                     },
                     new JointNode(JointType.HipRight)
                     {
-                        boneThickness = 10f,
+                        BoneThickness = 10f,
                         color = new Vector3(0.5f, 0.9f, 0.9f),
-                        children = new JointNode[]
+                        children = new ObservableCollection<SceneNode>
                         {
                             new JointNode(JointType.KneeRight)
                             {
-                                boneThickness = 5f,
+                                BoneThickness = 5f,
                                 color = new Vector3(0.5f, 0.9f, 0.65f),
-                                children = new JointNode[]
+                                children = new ObservableCollection<SceneNode>
                                 {
                                     new JointNode(JointType.AnkleRight)
                                     {
-                                        boneThickness = 5f,
+                                        BoneThickness = 5f,
                                         color = new Vector3(0.5f, 0.9f, 0.45f),
-                                        children = new JointNode[]
+                                        children = new ObservableCollection<SceneNode>
                                         {
                                             new JointNode(JointType.FootRight)
                                             {
-                                                boneThickness = 5f,
+                                                BoneThickness = 5f,
                                                 color = new Vector3(0.5f, 0.9f, 0.25f),
-                                                children = new JointNode[]
-                                                {
-                                                }
                                             }
                                         }
                                     }
@@ -799,8 +949,9 @@ namespace KinectData
             ObservableCollection<SceneNode>()
         { top };
 
-        public Body(string name, BodyData bd):
-            base(name) { bodyData = bd; }
+        public Body(string name, BodyData bd) :
+            base(name)
+        { bodyData = bd; }
 
         public Body(Body left, Body right, float interpVal) :
             base(left.Name)
@@ -898,18 +1049,21 @@ namespace KinectData
         }
     }
 
-    [JsonObject(MemberSerialization.OptIn)]
-    public class JointLimits : kinectwall.BaseNotifier
+    public static class QUtils
     {
-        private static Vector3 QToEuler(Quaternion q)
+        public static Vector3 ToEuler(this Quaternion q)
         {
             double eX = Math.Atan2(-2 * (q.Y * q.Z - q.W * q.X), q.W * q.W - q.X * q.X - q.Y * q.Y + q.Z * q.Z);
             double eY = Math.Asin(2 * (q.X * q.Z + q.W * q.Y));
             double eZ = Math.Atan2(-2 * (q.X * q.Y - q.W * q.Z), q.W * q.W + q.X * q.X - q.Y * q.Y - q.Z * q.Z);
             return new Vector3((float)eX, (float)eY, (float)eZ);
         }
+    }
 
-        public static JointLimits []Build()
+    [JsonObject(MemberSerialization.OptIn)]
+    public class JointLimits : kinectwall.BaseNotifier
+    {
+        public static JointLimits[] Build()
         {
             JointLimits[] limits = new JointLimits[(int)JointType.ThumbRight + 1];
             for (int i = 0; i < limits.Length; ++i)
@@ -930,7 +1084,9 @@ namespace KinectData
         public Vector3 MaxVals => maxVals;
         const float PiInv = 1.0f / (float)Math.PI;
 
-        public Vector3 Range { get
+        public Vector3 Range
+        {
+            get
             {
                 return new Vector3(
                     Math.Max(0, maxVals.X - minVals.X),
@@ -945,7 +1101,7 @@ namespace KinectData
         }
         public void ApplyQuaternion(Quaternion q)
         {
-            Vector3 v = QToEuler(q) * PiInv;
+            Vector3 v = q.ToEuler() * PiInv;
             bool minupdated = false,
                 maxupdated = false;
             if (v.X < minVals.X)
@@ -998,7 +1154,7 @@ namespace KinectData
         const float eps = 1e-5f;
 
         public class Limit
-        {            
+        {
             public Vector3 upper;
             public Vector3 lower;
         }

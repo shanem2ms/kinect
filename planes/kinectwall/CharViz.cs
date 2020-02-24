@@ -94,7 +94,7 @@ namespace kinectwall
             GL.UseProgram(program.ProgramName);
             float len = scale.Length;
             Matrix4[] mats = model.allBones.Select(b => (                
-                b.offsetMat.Value *
+                b.offsetMat.M4 *
                 b.node.WorldTransform *
                 model.meshes[b.meshIdx].node.WorldTransform.Inverted())).ToArray();
             float[] flvals = StructArrayToFloatArray<Matrix4>(mats);

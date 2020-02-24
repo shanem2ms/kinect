@@ -40,15 +40,15 @@ namespace kinectwall
 
     }
 
-    class SimObjectMesh : KinectData.SceneNode
+    class RigidBody : KinectData.SceneNode
     {
         ConvexTriangleMeshShape shape;
-        RigidBody body;
+        BulletSharp.RigidBody body;
         Matrix4 worldMatrix;
 
         public override ObservableCollection<KinectData.SceneNode> Nodes => null;
 
-        public SimObjectMesh(string name, Matrix4 initialPos, float mass, TriangleMesh tm) :
+        public RigidBody(string name, Matrix4 initialPos, float mass, TriangleMesh tm) :
             base(name)
         {
             worldMatrix = initialPos;
@@ -58,7 +58,7 @@ namespace kinectwall
             RigidBodyConstructionInfo constructInfo =
                 new RigidBodyConstructionInfo(mass, new DefaultMotionState(
                     Utils.FromMat4(worldMatrix)), shape, inertia);
-            body = new RigidBody(constructInfo);
+            body = new BulletSharp.RigidBody(constructInfo);
             body.SetDamping(0.3f, 0.3f);
         }
 
@@ -87,7 +87,7 @@ namespace kinectwall
 
         public int CollisionGroup { get; set; } = -1;
         public Matrix4 WorldMatrix => worldMatrix;
-        public RigidBody Body => body;
+        public BulletSharp.RigidBody Body => body;
         public object objectInfo;
 
         public override string ToString()
@@ -108,10 +108,10 @@ namespace kinectwall
     {
         Point2PointConstraint p2p;
 
-        SimObjectMesh pinnedBody;
+        RigidBody pinnedBody;
         override public TypedConstraint C => p2p;
 
-        public PointConstraint(SimObjectMesh mesh1, OpenTK.Vector3 m1pivot)
+        public PointConstraint(RigidBody mesh1, OpenTK.Vector3 m1pivot)
         {
             pinnedBody = mesh1;
             pinnedBody.Body.ActivationState = ActivationState.DisableDeactivation;
@@ -133,8 +133,8 @@ namespace kinectwall
 
         override public TypedConstraint C => dof;
 
-        public G6DOFConstraint(SimObjectMesh mesh1, Matrix4 m1matrix,
-                    SimObjectMesh mesh2, Matrix4 m2matrix,
+        public G6DOFConstraint(RigidBody mesh1, Matrix4 m1matrix,
+                    RigidBody mesh2, Matrix4 m2matrix,
                     OpenTK.Vector3 AngleLower,
                     OpenTK.Vector3 AngleUpper)
         {
@@ -167,7 +167,7 @@ namespace kinectwall
             }
         }
 
-        List<SimObjectMesh> bodies = new List<SimObjectMesh>();
+        List<RigidBody> bodies = new List<RigidBody>();
         List<Constraint> constraints = new List<Constraint>();
 
         public delegate void DebugDrawLineDel(ref Matrix4 viewProj, OpenTK.Vector3 from, OpenTK.Vector3 to, OpenTK.Vector3 color);
@@ -193,7 +193,7 @@ namespace kinectwall
         {
         }
 
-        public void AddObj(SimObjectMesh obj)
+        public void AddObj(RigidBody obj)
         {
             bodies.Add(obj);
             colWorld.AddCollisionObject(obj.Body);

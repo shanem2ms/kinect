@@ -19,11 +19,10 @@ namespace kinectwall
         private bool faceVisible = false;
         public bool IsInitialized = false;
 
-        List<SimObjectMesh> simObjects = new List<SimObjectMesh>();
         Dictionary<KinectData.JointType, Constraint> bodyDraggers
             = new Dictionary<KinectData.JointType, Constraint>();
-        Dictionary<KinectData.JointType, SimObjectMesh> bodyObjs
-            = new Dictionary<KinectData.JointType, SimObjectMesh>();
+        Dictionary<KinectData.JointType, RigidBody> bodyObjs
+            = new Dictionary<KinectData.JointType, RigidBody>();
 
         public Scene(Program _pickProgram)
         {
@@ -56,9 +55,9 @@ namespace kinectwall
         {
             public KinectData.JointType jt;
             public bool isTwoBodies = true;
-            public SimObjectMesh node1;
+            public RigidBody node1;
             public Matrix4 matrix1;
-            public SimObjectMesh node2;
+            public RigidBody node2;
             public Matrix4 matrix2;
             const float eps = 1e-5f;
             public Vector3 AngleLower = new Vector3(-eps, -eps, -eps);
@@ -157,32 +156,32 @@ namespace kinectwall
                         rotMats[i] *
                         Matrix4.CreateTranslation(transvecs[i] * 5) *
                         Matrix4.CreateTranslation(new Vector3(0, 3.5f, 5));
-                    SimObjectMesh obj = new SimObjectMesh($"wall{i}", matWorld, 0.0f, wall);
+                    RigidBody obj = new RigidBody($"wall{i}", matWorld, 0.0f, wall);
                     obj.objectInfo = new MeshInfo()
                     {
                         color = wallcolors[i],
                         scale = meshScale,
                         name = $"wall{i}"
                     };
-                    simObjects.Add(obj);
+                    root.Nodes.Add(obj);
                 }
             }
 
-            Dictionary<KinectData.JointNode, SimObjectMesh>
-                simDict = new Dictionary<KinectData.JointNode, SimObjectMesh>();
+            Dictionary<KinectData.JointNode, RigidBody>
+                simDict = new Dictionary<KinectData.JointNode, RigidBody>();
 
             List<ConstraintDef> constraints = new List<ConstraintDef>();
             {
                 KinectData.Body body = rootNode["refbody"] as KinectData.Body;
-                body.top.DrawNode((jn) =>
+                body.top.OnSceneNode<KinectData.JointNode>((jn) =>
                 {
                     Matrix4 worldMat =
-                        Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                        Matrix4.CreateTranslation(0, 0, -jn.JointLength * 0.5f) *
                         jn.WorldMat;
-                    Vector3 meshScale = new Vector3(0.01f, jn.jointLength * 0.5f, 0.01f);
+                    Vector3 meshScale = new Vector3(0.01f, 0.01f, jn.JointLength * 0.5f);
                     BulletSharp.TriangleMesh boneTM = Cube.MakeBulletMesh(meshScale);
 
-                    SimObjectMesh obj = new SimObjectMesh(jn.Name, worldMat, 0.0f, boneTM);
+                    RigidBody obj = new RigidBody("rigidbody", worldMat, 0.0f, boneTM);
                     obj.CollisionGroup = 64;
                     Vector3 vecjoint = KinectData.PoseData.JointVals[(int)jn.jt];
 
@@ -199,14 +198,14 @@ namespace kinectwall
                         name = jn.jt.ToString()
                     };
 
-                    simObjects.Add(obj);
+                    jn.AddNode(obj);
                     bodyObjs.Add(jn.jt, obj);
                     simDict.Add(jn, obj);
 
                     if (jn.Parent != null)
                     {
-                        SimObjectMesh parentObj = simDict[jn.Parent];
-                        Vector3 localPivot = new Vector3(0, -jn.jointLength * 0.5f, 0);
+                        RigidBody parentObj = simDict[jn.Parent];
+                        Vector3 localPivot = new Vector3(0, -jn.JointLength * 0.5f, 0);
                         Vector3 worldPivot = Vector3.TransformPosition(localPivot, obj.WorldMatrix);
                         Vector3 parentLocalPivot = Vector3.TransformPosition(worldPivot,
                             parentObj.WorldMatrix.Inverted());
@@ -241,7 +240,9 @@ namespace kinectwall
                 });
             }
 
-            foreach (var so in simObjects)
+            List<RigidBody> rigidBodies = new List<RigidBody>();
+            rootNode.GetAllObjects(rigidBodies);
+            foreach (var so in rigidBodies)
             {
                 simulation.AddObj(so);
             }
@@ -278,13 +279,13 @@ namespace kinectwall
         {
             foreach (var body in bodyFrame.bodies.Values)
             {
-                body.top.DrawNode((jn) =>
+                body.top.OnSceneNode<KinectData.JointNode>((jn) =>
                 {
-                    SimObjectMesh obj;
+                    RigidBody obj;
                     if (bodyObjs.TryGetValue(jn.jt, out obj))
                     {
                         Matrix4 worldMat =
-                            Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                            Matrix4.CreateTranslation(0, -jn.JointLength * 0.5f, 0) *
                             jn.WorldMat;
                         obj.SetTransform(worldMat);
                     }
@@ -312,13 +313,13 @@ namespace kinectwall
 
             foreach (var body in bodyFrame.bodies.Values)
             {
-                body.top.DrawNode((jn) =>
+                body.top.OnSceneNode<KinectData.JointNode>((jn) =>
                 {
                     Constraint constraint;
                     if (bodyDraggers.TryGetValue(jn.jt, out constraint))
                     {
                         Matrix4 worldMat =
-                            Matrix4.CreateTranslation(0, -jn.jointLength * 0.5f, 0) *
+                            Matrix4.CreateTranslation(0, -jn.JointLength * 0.5f, 0) *
                             jn.WorldMat;
                         if (jn.Tracked == KinectData.TrackingState.Tracked)
                         {
@@ -353,14 +354,16 @@ namespace kinectwall
             GL.UseProgram(program.ProgramName);
 
             program.Set1("ambient", 0.3f);
-            foreach (SimObjectMesh obj in simObjects)
+
+            rootNode.OnSceneNode<KinectData.JointNode>((jn) =>
             {
-                MeshInfo meshInfo = obj.objectInfo as MeshInfo;
-                program.Set3("meshColor", meshInfo.color);
+                program.Set3("meshColor", jn.color);
 
                 program.Set3("lightPos", new Vector3(2, 5, 2));
-                Matrix4 matWorld = Matrix4.CreateScale(meshInfo.scale) *
-                    obj.WorldMatrix;
+
+                Matrix4 matWorld = Matrix4.CreateScale(
+                        new Vector3(0.01f, 0.01f, jn.JointLength * 0.5f)) *
+                    jn.WorldMat;
                 Matrix4 matWorldViewProj = matWorld * viewProj;
                 program.SetMat4("uWorld", ref matWorld);
                 Matrix4 matWorldInvT = matWorld.Inverted();
@@ -370,7 +373,8 @@ namespace kinectwall
                 GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
                 // Use the vertex array
                 vertexArray.Draw();
-            }
+            });
+
             if (faceArray !=null)
             {
                 Matrix4 matWorldViewProj = viewProj;
@@ -381,11 +385,13 @@ namespace kinectwall
             }
         }
 
-        public void Pick(KinectData.Frame frame, Matrix4 viewProj,
+        public void Pick(Matrix4 viewProj,
             List<object> pickObjects, int offset)
         {
+            List<RigidBody> rigidBodies = new List<RigidBody>();
+            rootNode.GetAllObjects(rigidBodies);
             int idx = offset;
-            foreach (SimObjectMesh obj in simObjects)
+            foreach (RigidBody obj in rigidBodies)
             {
                 MeshInfo meshInfo = obj.objectInfo as MeshInfo;
                 Matrix4 matWorld = Matrix4.CreateScale(meshInfo.scale) *

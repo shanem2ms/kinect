@@ -28,12 +28,12 @@ namespace kinectwall
             int idx = offset;
             foreach (Body body in frame.bodies.Values)
             {
-                body.top.DrawNode((jn) =>
+                body.top.OnSceneNode<JointNode>((jn) =>
                 {
                     Matrix4 worldMat = jn.WorldMat;
                     Matrix4 matWorldViewProj = matWorldViewProj =
                         Matrix4.CreateTranslation(0, 1, 0) *
-                        Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f) *
+                        Matrix4.CreateScale(0.01f, jn.JointLength * 0.5f, 0.01f) *
                         worldMat * viewProj;
                     pickProgram.Set4("pickColor", new Vector4((idx & 0xFF) / 255.0f, 
                         ((idx >> 8) & 0xFF) / 255.0f,
@@ -53,7 +53,7 @@ namespace kinectwall
             GL.UseProgram(program.ProgramName);
             foreach (Body body in frame.bodies.Values)
             {
-                body.top.DrawNode((jn) =>
+                body.top.OnSceneNode<JointNode>((jn) =>
                 {
                     Matrix4 worldMat = jn.WorldMat;
                     program.Set1("opacity", 1.0f);
@@ -93,7 +93,7 @@ namespace kinectwall
 
                     matWorldViewProj = matWorldViewProj =
                         Matrix4.CreateTranslation(0, -1, 0) *
-                        Matrix4.CreateScale(0.01f, jn.jointLength * 0.5f, 0.01f) *
+                        Matrix4.CreateScale(0.01f, jn.JointLength * 0.5f, 0.01f) *
                         worldMat * viewProj;
                     program.Set3("meshColor", color);
                     GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
