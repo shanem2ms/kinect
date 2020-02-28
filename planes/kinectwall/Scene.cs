@@ -361,7 +361,9 @@ namespace kinectwall
 
                 program.Set3("lightPos", new Vector3(2, 5, 2));
 
-                Matrix4 matWorld = Matrix4.CreateScale(
+                Matrix4 matWorld = 
+                        Matrix4.CreateTranslation(0, 0,-1) *
+                        Matrix4.CreateScale(
                         new Vector3(0.01f, 0.01f, jn.JointLength * 0.5f)) *
                     jn.WorldMat;
                 Matrix4 matWorldViewProj = matWorld * viewProj;

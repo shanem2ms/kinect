@@ -504,7 +504,8 @@ namespace kinectwall
                         Vertex vtx = new Vertex();
                         vtx.pos = FromVector(mesh.Vertices[i]);
                         vtx.normal = FromVector(mesh.Normals[i]);
-                        vtx.texcoord = FromVector(mesh.TextureCoordinateChannels[0][i]);
+                        vtx.texcoord = i < mesh.TextureCoordinateChannels[0].Count ? FromVector(mesh.TextureCoordinateChannels[0][i])
+                            : Vector3.Zero;
                         this.vertices.Add(vtx);
 
                         Vector3 worldPt = Vector3.TransformPosition(vtx.pos, wmat);
