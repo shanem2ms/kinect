@@ -13,6 +13,8 @@ namespace KinectData
         public string Name => name;
         public virtual ObservableCollection<SceneNode> Nodes { get => null; }
 
+        public bool IsSelected = false;
+
         public SceneNode this[string name]
         {
             get => Nodes.FirstOrDefault(sn => sn.name == name);

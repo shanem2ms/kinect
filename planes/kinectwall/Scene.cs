@@ -351,13 +351,12 @@ namespace kinectwall
         {
             firstDbgDraw = true;
             // Select the program for drawing
-            GL.UseProgram(program.ProgramName);
-
-            program.Set1("ambient", 0.3f);
+            GL.UseProgram(program.ProgramName);            
 
             rootNode.OnSceneNode<KinectData.JointNode>((jn) =>
-            {
+            {                
                 program.Set3("meshColor", jn.color);
+                program.Set1("ambient", jn.IsSelected ? 1.0f : 0.3f);
 
                 program.Set3("lightPos", new Vector3(2, 5, 2));
 

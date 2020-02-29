@@ -55,10 +55,9 @@ namespace kinectwall
             public Texture diffTex;
         }
 
-        public class Node
+        public class Node : KinectData.SceneNode
         {
             public Node parent = null;
-            public string name;
             public List<Node> children;
             public JointTransform bindTransform = JointTransform.Identity;
             JointTransform overrideTransform;
@@ -69,6 +68,10 @@ namespace kinectwall
 
             public Matrix4 Transform => useOverride ? overrideTransform.M4 : 
                 bindTransform.M4;
+
+            public Node(string _n) : base(_n)
+            {
+            }
 
             public void OutputNodeDbg(int level)
             {
@@ -105,7 +108,7 @@ namespace kinectwall
             { 
                 if (i == 0) overrideTransform.scl = (Vector3)val;
                 else if (i == 1) overrideTransform.rot = (Quaternion)val;
-                else if (i == 2) overrideTransform.pos = (Vector3)val;
+                else if (i == 2) overrideTransform.off = (Vector3)val;
             }
 
             object Interp(object l, object r, double lerpd)
@@ -278,7 +281,7 @@ namespace kinectwall
             int idx = 0;
             foreach (Character.Mesh mesh in this.meshes)
             {
-                Debug.WriteLine($"idx ({idx}): node={mesh.node.name}");
+                Debug.WriteLine($"idx ({idx}): node={mesh.node.Name}");
                 Vector3 size = mesh.max - mesh.min;
                 Debug.WriteLine($"MeshSize = {size}");
 
@@ -290,7 +293,7 @@ namespace kinectwall
                     Matrix4 m1 = matw * b.node.WorldTransform.Inverted();
                     JointTransform j1 = new JointTransform();
                     j1.M4 = m1;
-                    Debug.WriteLine($"   idx={bidx++} name={b.node.name} mat={b.offsetMat} calculated={j1}");
+                    Debug.WriteLine($"   idx={bidx++} name={b.node.Name} mat={b.offsetMat} calculated={j1}");
                 }
             }
         }
@@ -461,10 +464,9 @@ namespace kinectwall
 
         private Node BuildModelNodes(Dictionary<string, Character.Node> nodeDict, ai.Node node)
         {
-            Node n = new Node();
-            n.name = node.Name;
+            Node n = new Node(node.Name);
             n.bindTransform.M4 = FromMatrix(node.Transform);
-            n.kinectJoint = GetKinectJoint(n.name);
+            n.kinectJoint = GetKinectJoint(n.Name);
             n.color = GetJointColor(n.kinectJoint);
 
             if (node.HasChildren)
@@ -476,7 +478,7 @@ namespace kinectwall
                 mn.parent = n;
             }
 
-            nodeDict.Add(n.name, n);
+            nodeDict.Add(n.Name, n);
             return n;
         }
 
@@ -564,7 +566,7 @@ namespace kinectwall
 
         public void SetBody(Body body)
         {
-            Root.bindTransform.pos = body.top.LocalTransform.pos;
+            Root.bindTransform.off = body.top.LocalTransform.off;
             Vector3 bleftFoot = body.jointNodes[JointType.FootLeft].WorldMat.ExtractTranslation();
             Vector3 brightFoot = body.jointNodes[JointType.FootRight].WorldMat.ExtractTranslation();
             Vector3 bfootPos = (bleftFoot + brightFoot) * 0.5f;
@@ -578,9 +580,9 @@ namespace kinectwall
             Vector3 rightFootPos = crightFoot.node.WorldTransform.ExtractTranslation();
             Vector3 cfootPos = (leftFootPos + rightFootPos) * 0.5f;
 
-            Vector3 bpos = Root.bindTransform.pos;
+            Vector3 bpos = Root.bindTransform.off;
             bpos.Y += (bfootPos.Y - cfootPos.Y);
-            Root.bindTransform.pos = bpos;
+            Root.bindTransform.off = bpos;
 
             //float bodyToCharRatio = body.bodyData.HeadToSpineSize / this.headToSpineSize;
             //Root.bindTransform.scl = new Vector3(bodyToCharRatio, bodyToCharRatio, bodyToCharRatio);

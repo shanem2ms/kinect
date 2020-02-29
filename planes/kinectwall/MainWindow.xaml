@@ -75,12 +75,13 @@
                         ItemsSource="{Binding JointLimits}" ItemTemplate="{StaticResource JointLims}"/>
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                         <RowDefinition Height="9" />
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TreeView x:Name="SceneTree" ItemsSource="{Binding SceneRoot.Nodes}" >
+                    <TreeView x:Name="SceneTree" ItemsSource="{Binding SceneRoot.Nodes}"
+                              SelectedItemChanged="SceneTree_SelectedItemChanged">
                         <TreeView.Resources>
                             <HierarchicalDataTemplate DataType="{x:Type kd:SceneNode}" 
                                                       ItemsSource="{Binding Path=Nodes}">

@@ -11,13 +11,13 @@ namespace KinectData
 {
     public class JointTransform
     {
-        public Vector3 pos;
+        public Vector3 off;
         public Vector3 scl;
         public Quaternion rot;
 
         public static JointTransform Identity { get => new JointTransform()
         {
-            pos = Vector3.Zero,
+            off = Vector3.Zero,
             scl = Vector3.One,
             rot = Quaternion.Identity
         };
@@ -30,7 +30,7 @@ namespace KinectData
 
         public JointTransform(Matrix4 mat)
         {
-            pos = Vector3.Zero;
+            off = Vector3.Zero;
             scl = Vector3.One;
             rot = Quaternion.Identity;
             SetFromMatrix(mat);
@@ -110,13 +110,17 @@ namespace KinectData
                 vpos.Y = 0;
             if (vpos.Z != 0 && Math.Abs(vpos.Z) < 1e-3)
                 vpos.Z = 0;
-            this.pos = vpos;
+
+            Matrix4 m4 = Matrix4.CreateFromQuaternion(vrot);
+            this.off =
+                Vector3.TransformPosition(vpos, m4.Inverted());
         }
         public Matrix4 M4
         {
-            get => Matrix4.CreateScale(scl) *
-                    Matrix4.CreateFromQuaternion(rot) *
-                    Matrix4.CreateTranslation(pos);
+            get =>
+                Matrix4.CreateScale(scl) *
+                Matrix4.CreateTranslation(off) *
+                    Matrix4.CreateFromQuaternion(rot);
             set
             {
                 SetFromMatrix(value);
@@ -126,7 +130,7 @@ namespace KinectData
         public override string ToString()
         {
             string outstr = "";
-            if (pos != Vector3.Zero) outstr += "T: " + pos + " ";
+            if (off != Vector3.Zero) outstr += "O: " + off + " ";
             if (scl != Vector3.One) outstr += "S: " + scl + " ";
             if (rot != Quaternion.Identity)
             {
@@ -384,7 +388,7 @@ namespace KinectData
             Quaternion q = LocalTransform.rot;
             Vector4 rotaxisang = q.ToAxisAngle();
             rotaxisang.W *= 180.0f / (float)Math.PI;
-            Debug.WriteLine(new string(' ', level * 2) + $"{jt} - rot={rotaxisang} trn={LocalTransform.pos}");
+            Debug.WriteLine(new string(' ', level * 2) + $"{jt} - rot={rotaxisang} off={LocalTransform.off}");
             if (children != null)
             {
                 foreach (JointNode cn in children)
@@ -604,7 +608,7 @@ namespace KinectData
         {
             return new JointTransform()
             {
-                pos = Lerp(l.pos, r.pos, i),
+                off = Lerp(l.off, r.off, i),
                 rot = Lerp(l.rot, r.rot, i),
                 scl = Lerp(l.scl, r.scl, i)
             };

@@ -403,7 +403,7 @@ namespace kinectwall
             OnPropertyChanged("JointLimits");
         }
 
-        object SelectedObject = null;
+        public KinectData.SceneNode SelectedObject { get; set; }
 
         void DoPick()
         {
@@ -429,8 +429,13 @@ namespace kinectwall
             GLPixel pixel = pixels[(glControl.Height - pickPt.Value.Y) * glControl.Width + pickPt.Value.X];
             int idx = pixel.r | (pixel.g << 8) | (pixel.b << 16);
             idx -= idxOffset;
+
+            if (SelectedObject != null) SelectedObject.IsSelected = false;
             if (idx >= 0 && idx < pickObjects.Count)
-                SelectedObject = pickObjects[idx];
+            {
+                SelectedObject = pickObjects[idx] as KinectData.SceneNode;
+                SelectedObject.IsSelected = true;
+            }
             else
                 SelectedObject = null;
 
@@ -651,6 +656,16 @@ namespace kinectwall
             {
                 StreamWriter sw = new StreamWriter(fs);
                 sw.Write(jsonLimits);
+            }
+        }
+
+        private void SceneTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (SelectedObject != null) SelectedObject.IsSelected = false;
+            if (e.NewValue != null)
+            {
+                this.SelectedObject = e.NewValue as KinectData.SceneNode;
+                this.SelectedObject.IsSelected = true;
             }
         }
     }
