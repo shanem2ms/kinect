@@ -17,26 +17,16 @@ namespace kinectwall
 {
     class CharViz
     {
-        private Program program;
-        string path;
         Character model;
         Vector3 scale;
 
         public int boneSelIdx = 0;
-        public CharViz(string _path)
+        public CharViz(Character _model)
         {
-            path = _path;
-            Init();
+            model = _model;
         }
 
         public int matrixMode = 0;
-        public void Init()
-        {
-            program = Program.FromFiles("Character.vert", "Character.frag");
-            this.model = new Character();
-            this.model.Load(path, program);
-
-        }
 
         int boneMatrixLoc = -1;
 
@@ -61,37 +51,8 @@ namespace kinectwall
 
         double animTime = 0;
         public void Render(Frame frame, Matrix4 viewProj)
-        {/*
-            GL.UseProgram(boneProgram.ProgramName);
-
-            Character.Node []nodes = model.allBones.GroupBy(b => b.node).Select(g => g.Key).ToArray();
-            for (int idx = 0; idx < nodes.Length; ++idx)
-            {
-                Matrix4 matWorldViewProj =
-                    Matrix4.CreateTranslation(1, 0, 0) *
-                    Matrix4.CreateScale(0.02f, 0.005f, 0.005f) *
-                    nodes[idx].WorldTransform * viewProj;
-                GL.UniformMatrix4(boneProgram.LocationMVP, false, ref matWorldViewProj);
-                boneProgram.Set3("nodeColor", new Vector3(1, 0.2f, 0.2f));
-                boneVA.Draw();
-                matWorldViewProj =
-                    Matrix4.CreateTranslation(0, 1, 0) *
-                    Matrix4.CreateScale(0.005f, 0.02f, 0.005f) *
-                    nodes[idx].WorldTransform * viewProj;
-                GL.UniformMatrix4(boneProgram.LocationMVP, false, ref matWorldViewProj);
-                boneProgram.Set3("nodeColor", new Vector3(0.2f, 1, 0.2f));
-                boneVA.Draw();
-                matWorldViewProj =
-                    Matrix4.CreateTranslation(0, 0, 1) *
-                    Matrix4.CreateScale(0.005f, 0.005f, 0.02f) *
-                    nodes[idx].WorldTransform * viewProj;
-                GL.UniformMatrix4(boneProgram.LocationMVP, false, ref matWorldViewProj);
-                boneProgram.Set3("nodeColor", new Vector3(0.2f, 0.2f, 1));
-                boneVA.Draw();
-            }
-            */
-
-            GL.UseProgram(program.ProgramName);
+        {
+            model.program.Use(0);
             float len = scale.Length;
             Matrix4[] mats = model.allBones.Select(b => (                
                 b.offsetMat.M4 *
@@ -104,7 +65,7 @@ namespace kinectwall
             //model.Root.SetAnimationTime(animTime);
 
             if (boneMatrixLoc < 0)
-                boneMatrixLoc = program.GetLoc("boneMatrices");
+                boneMatrixLoc = model.program.GetLoc("boneMatrices");
             List<Matrix4> matList = new List<Matrix4>();
 
             if (frame != null)
@@ -114,8 +75,8 @@ namespace kinectwall
             }
 
 
-            GL.UniformMatrix4(program.GetLoc("gBones"), flvals.Length / 16, false, flvals);
-            program.Set1("gUseBones", 1);
+            GL.UniformMatrix4(model.program.GetLoc("gBones"), flvals.Length / 16, false, flvals);
+            model.program.Set1("gUseBones", 1);
             Vector3[] boneColors = model.allBones.Select(b => b.node.color).ToArray();
             float[] fvColors = new float[boneColors.Length * 3];
 
@@ -125,8 +86,8 @@ namespace kinectwall
                 fvColors[bIdx * 3 + 1] = boneColors[bIdx].Y;
                 fvColors[bIdx * 3 + 2] = boneColors[bIdx].Z;
             }
-            GL.Uniform3(program.GetLoc("gBonesColor"), fvColors.Length / 3, fvColors);
-            program.Set1("diffuseMap", 0);
+            GL.Uniform3(model.program.GetLoc("gBonesColor"), fvColors.Length / 3, fvColors);
+            model.program.Set1("diffuseMap", 0);
 
             // Use the vertex array
             foreach (Character.Mesh mesh in this.model.meshes)
@@ -139,7 +100,7 @@ namespace kinectwall
                     Character.Material mat = this.model.materials[mesh.materialIdx];
                     if (mat.diffTex != null) mat.diffTex.glTexture.BindToIndex(0);
                 }
-                GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                model.program.SetMat4("uMVP", ref viewProj);
                 this.model.vertexArray.Draw(mesh.offset, mesh.count);
             }
 

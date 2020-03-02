@@ -6,6 +6,7 @@ using OpenTK;
 using System.IO;
 using System.Diagnostics;
 using Newtonsoft.Json;
+using GLObjects;
 
 namespace KinectData
 {
@@ -15,12 +16,14 @@ namespace KinectData
         public Vector3 scl;
         public Quaternion rot;
 
-        public static JointTransform Identity { get => new JointTransform()
+        public static JointTransform Identity
         {
-            off = Vector3.Zero,
-            scl = Vector3.One,
-            rot = Quaternion.Identity
-        };
+            get => new JointTransform()
+            {
+                off = Vector3.Zero,
+                scl = Vector3.One,
+                rot = Quaternion.Identity
+            };
         }
 
         public JointTransform()
@@ -166,6 +169,8 @@ namespace KinectData
 
             b.top.SetJoints(PoseData.JointsIdx);
             b.top.SetJointLengths(Matrix4.Identity);
+
+
             return b;
         }
 
@@ -455,7 +460,7 @@ namespace KinectData
             return val;
         }
 
-        public void SetJoints(PoseData.Joint []joints)
+        public void SetJoints(PoseData.Joint[] joints)
         {
             SetJointsRec(joints);
             SetJointLengths(Matrix4.Identity);
@@ -490,8 +495,8 @@ namespace KinectData
             Dictionary<JointType, JointNode> allNodes = new Dictionary<JointType, JointNode>();
             GetAllJointNodes(allNodes);
 
-        }     
-        
+        }
+
         void SetJointsRec(Dictionary<JointType, Joint> jointPositions, Matrix3 parentRot, Matrix4 parentWorldMat)
         {
             Matrix4 wInv = parentWorldMat.Inverted();
@@ -799,6 +804,45 @@ namespace KinectData
             jn.SetParents(null);
             return jn;
         }
+
+        protected override void OnRender(RenderData renderData)
+        {
+            Program program = renderData.ActiveProgram;
+
+            Matrix4 matWorld =
+                    Matrix4.CreateTranslation(0, 0, -1) *
+                    Matrix4.CreateScale(
+                    new Vector3(0.01f, 0.01f, this.JointLength * 0.5f)) *
+                    this.WorldMat;
+            Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
+            program.SetMat4("uWorld", ref matWorld);
+
+            if (renderData.isPick)
+            {
+                program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
+                    ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
+                    ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
+                    1));
+                renderData.pickObjects.Add(this);
+                renderData.pickIdx++;
+
+            }
+            else
+            {
+                program.Set3("meshColor", this.color);
+                program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
+                program.Set3("lightPos", new Vector3(2, 5, 2));
+                Matrix4 matWorldInvT = matWorld.Inverted();
+                matWorldInvT.Transpose();
+                program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
+            }
+
+            program.SetMat4("uMVP", ref matWorldViewProj);
+            // Use the vertex array
+            renderData.ActiveVA.Draw();
+
+            base.OnRender(renderData);
+        }
     }
     //
     // Summary:
@@ -949,13 +993,27 @@ namespace KinectData
         public Vector2 lean;
         public FaceMesh face;
 
+        Program program;
+        VertexArray cubeVA;
+
+        protected override void OnRender(RenderData renderData)
+        {
+            program.Use(renderData.isPick ? 1 : 0);
+            renderData.ActiveProgram = program;
+            renderData.ActiveVA = cubeVA;
+            base.OnRender(renderData);
+        }
+
         public override ObservableCollection<SceneNode> Nodes => new
-            ObservableCollection<SceneNode>()
-        { top };
+            ObservableCollection<SceneNode>() { top };
 
         public Body(string name, BodyData bd) :
             base(name)
-        { bodyData = bd; }
+        { 
+            bodyData = bd;
+            program = Program.FromFiles("Main.vert", "Main.frag");
+            cubeVA = kinectwall.Cube.MakeCube(program);
+        }
 
         public Body(Body left, Body right, float interpVal) :
             base(left.Name)
@@ -1213,7 +1271,7 @@ namespace KinectData
             new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
 //        HandTipRight = 23,
             new Limit() { upper = new Vector3(eps, eps, eps), lower = new Vector3(-eps, -eps, -eps) },
-//        ThumbRight = 24
+            //        ThumbRight = 24
         };
     }
     public static class PoseData

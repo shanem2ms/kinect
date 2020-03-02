@@ -8,6 +8,14 @@ namespace GLObjects
 {
     // Note: abstractions for drawing using programmable pipeline.
 
+    public static class GLErr
+    {
+        public static void Check()
+        {
+            if (GL.GetError() != ErrorCode.NoError)
+                System.Diagnostics.Debugger.Break();
+        }
+    }
     /// <summary>
     /// Shader object abstraction.
     /// </summary>
@@ -59,26 +67,49 @@ namespace GLObjects
         {
             return new Program(
                 System.IO.File.ReadAllText("Shaders/" + vtxPath),
-                System.IO.File.ReadAllText("Shaders/" + pixPath));
+                System.IO.File.ReadAllText("Shaders/" + pixPath),
+                System.IO.File.ReadAllText("Shaders/Pick.frag"));
         }
-        public Program(string vertexSource, string fragmentSource)
+        public Program(string vertexSource, string fragmentSource, string pickSource)
         {
             // Create vertex and frament shaders
             // Note: they can be disposed after linking to program; resources are freed when deleting the program
             using (Object vObject = new Object(ShaderType.VertexShader, vertexSource))
             using (Object fObject = new Object(ShaderType.FragmentShader, fragmentSource))
+            using (Object pObject = new Object(ShaderType.FragmentShader, pickSource))
+            {
+                data = new Data[2]
+                {
+                    new Data(vObject, fObject),
+                    new Data(vObject, pObject),
+                };
+            }
+        }
+
+        public class Data
+        {
+            public readonly int pgm;
+            public readonly int LocationPosition;
+            public readonly int LocationTexCoord0;
+            public readonly int LocationTexCoord1;
+            public readonly int LocationTexCoord2;
+            public readonly int LocationNormals;
+            public Dictionary<string, int> shaderOffsets =
+                new Dictionary<string, int>();
+
+            public Data(Object vert, Object frag)
             {
                 // Create program
-                ProgramName = GL.CreateProgram();
+                pgm = GL.CreateProgram();
                 // Attach shaders
-                GL.AttachShader(ProgramName, vObject.ShaderName);
-                GL.AttachShader(ProgramName, fObject.ShaderName);
+                GL.AttachShader(pgm, vert.ShaderName);
+                GL.AttachShader(pgm, frag.ShaderName);
                 // Link program
-                GL.LinkProgram(ProgramName);
+                GL.LinkProgram(pgm);
 
                 // Check linkage status
                 int linked;
-                GL.GetProgram(ProgramName, GetProgramParameterName.LinkStatus, out linked);
+                GL.GetProgram(pgm, GetProgramParameterName.LinkStatus, out linked);
 
                 if (linked == 0)
                 {
@@ -86,46 +117,46 @@ namespace GLObjects
                     string infolog;
                     int infologLength;
 
-                    GL.GetProgramInfoLog(ProgramName, 1024, out infologLength, out infolog);
+                    GL.GetProgramInfoLog(pgm, 1024, out infologLength, out infolog);
 
                     throw new InvalidOperationException($"unable to link program: {infolog}");
                 }
 
-                // Get uniform locations
-                LocationMVP = GL.GetUniformLocation(ProgramName, "uMVP");
-
                 // Get attributes locations
-                if ((LocationPosition = GL.GetAttribLocation(ProgramName, "aPosition")) < 0)
+                if ((LocationPosition = GL.GetAttribLocation(pgm, "aPosition")) < 0)
                     throw new InvalidOperationException("no attribute aPosition");
-                LocationTexCoord0 = GL.GetAttribLocation(ProgramName, "aTexCoord0");
-                LocationTexCoord1 = GL.GetAttribLocation(ProgramName, "aTexCoord1");
-                LocationTexCoord2 = GL.GetAttribLocation(ProgramName, "aTexCoord2");
-                LocationNormals = GL.GetAttribLocation(ProgramName, "aNormal");
+                LocationTexCoord0 = GL.GetAttribLocation(pgm, "aTexCoord0");
+                LocationTexCoord1 = GL.GetAttribLocation(pgm, "aTexCoord1");
+                LocationTexCoord2 = GL.GetAttribLocation(pgm, "aTexCoord2");
+                LocationNormals = GL.GetAttribLocation(pgm, "aNormal");
             }
         }
 
-        public readonly int ProgramName;
-        public readonly int LocationMVP;
-        public readonly int LocationPosition;
-        public readonly int LocationTexCoord0;
-        public readonly int LocationTexCoord1;
-        public readonly int LocationTexCoord2;
-        public readonly int LocationNormals;
-        private Dictionary<string, int> shaderOffsets =
-            new Dictionary<string, int>();
-
+        Data[] data = new Data[2];
         public void Dispose()
         {
-            GL.DeleteProgram(ProgramName);
+            GL.DeleteProgram(data[0].pgm);
+            GL.DeleteProgram(data[1].pgm);
         }
+
+        int dataIdx = 0;
+        public int DataIdx => dataIdx;
+
+        public void Use(int idx)
+        {
+            dataIdx = idx;
+            GL.UseProgram(data[idx].pgm);
+        }
+
+        public Data D => data[dataIdx];
 
         public int GetLoc(string name)
         {
             int loc;
-            if (!shaderOffsets.TryGetValue(name, out loc))
+            if (!data[dataIdx].shaderOffsets.TryGetValue(name, out loc))
             {
-                loc = GL.GetUniformLocation(ProgramName, name);
-                shaderOffsets.Add(name, loc);
+                loc = GL.GetUniformLocation(data[dataIdx].pgm, name);
+                data[dataIdx].shaderOffsets.Add(name, loc);
             }
             return loc;
         }
@@ -391,7 +422,7 @@ namespace GLObjects
         }
     }
 
-    struct Vec4i
+    public struct Vec4i
     {
         public int X;
         public int Y;
@@ -401,8 +432,28 @@ namespace GLObjects
     /// <summary>
     /// Vertex array abstraction.
     /// </summary>
-    class VertexArray : IDisposable
+    public class VertexArray : IDisposable
     {
+        private int elementCount = 0;
+        private int elementCountWireframe = 0;
+        private int vertexCount = 0;
+
+        public readonly int []ArrayName = new int[2];
+
+        private readonly GLObjects.BufferBase _BufferPosition;
+        private readonly GLObjects.BufferBase _BufferNormal;
+        private readonly GLObjects.BufferBase _BufferElems;
+
+        private readonly GLObjects.BufferBase _BufferTexCoords0;
+        private readonly GLObjects.BufferBase _BufferTexCoords1;
+        private readonly GLObjects.BufferBase _BufferTexCoords2;
+        private GLObjects.Buffer<uint> _BufferWireframeElems;
+        private readonly Program _Program;
+
+        public Program Program { get { return _Program; } }
+        uint[] ElementArray = null;
+
+
         public VertexArray(Program program, Vector3[] positions, ushort[] elems, Vector3[] texCoords,
             Vector3[] normals) :
             this(program, positions, Array.ConvertAll(elems, e => (uint)e), texCoords, null, null,
@@ -421,14 +472,8 @@ namespace GLObjects
         public VertexArray(Program program, Vector3[] positions, uint[] elems, Vector3[] texCoords0,
             Vec4i[]texCoords1, Vector4[]texCoords2, Vector3[] normals)
         {
-
             this._Program = program;
-
             this.ElementArray = elems;
-            // Generate VAO name
-            ArrayName = GL.GenVertexArray();
-            // First bind create the VAO
-            GL.BindVertexArray(ArrayName);
 
             vertexCount = positions.Length;
             int stride = 3;
@@ -461,38 +506,56 @@ namespace GLObjects
                 GL.BindBuffer(BufferTarget.ElementArrayBuffer, _BufferElems.BufferName);
             }
 
-            // Select the buffer object
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferPosition.BufferName);
-            GL.VertexAttribPointer((int)program.LocationPosition, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-            GL.EnableVertexAttribArray((int)program.LocationPosition);
-
-            if (texCoords0 != null && program.LocationTexCoord0 >= 0)
+            for (int i = 0; i < 2; ++i)
             {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferTexCoords0.BufferName);
-                GL.VertexAttribPointer((int)program.LocationTexCoord0, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-                GL.EnableVertexAttribArray((int)program.LocationTexCoord0);
+                // Generate VAO name
+                ArrayName[i] = GL.GenVertexArray();
+                // First bind create the VAO
+                GLErr.Check();
+                program.Use(i);
+
+                GL.BindVertexArray(ArrayName[i]);
+                GL.BindBuffer(BufferTarget.ElementArrayBuffer, _BufferElems.BufferName);
+
+                // Select the buffer object
+                GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferPosition.BufferName);
+                GL.VertexAttribPointer((int)program.D.LocationPosition, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+                if (elems != null)
+                    GL.EnableVertexAttribArray((int)program.D.LocationPosition);
+
+                if (texCoords0 != null && program.D.LocationTexCoord0 >= 0)
+                {
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferTexCoords0.BufferName);
+                    GL.VertexAttribPointer((int)program.D.LocationTexCoord0, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+                    GL.EnableVertexAttribArray((int)program.D.LocationTexCoord0);
+                }
+
+                if (texCoords1 != null && program.D.LocationTexCoord1 >= 0)
+                {
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferTexCoords1.BufferName);
+                    GL.VertexAttribIPointer((int)program.D.LocationTexCoord1, 4, VertexAttribIntegerType.Int, 0, IntPtr.Zero);
+                    GL.EnableVertexAttribArray((int)program.D.LocationTexCoord1);
+                }
+
+                if (texCoords2 != null && program.D.LocationTexCoord2 >= 0)
+                {
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferTexCoords2.BufferName);
+                    GL.VertexAttribPointer((int)program.D.LocationTexCoord2, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+                    GL.EnableVertexAttribArray((int)program.D.LocationTexCoord2);
+                }
+
+                if (normals != null && program.D.LocationNormals >= 0)
+                {
+                    GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferNormal.BufferName);
+                    GL.VertexAttribPointer((int)program.D.LocationNormals, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+                    GL.EnableVertexAttribArray((int)program.D.LocationNormals);
+                }
+
+                GL.BindVertexArray(0);
             }
 
-            if (texCoords1 != null && program.LocationTexCoord1 >= 0)
-            {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferTexCoords1.BufferName);
-                GL.VertexAttribIPointer((int)program.LocationTexCoord1, 4, VertexAttribIntegerType.Int, 0, IntPtr.Zero);
-                GL.EnableVertexAttribArray((int)program.LocationTexCoord1);
-            }
+            GLErr.Check();
 
-            if (texCoords2 != null && program.LocationTexCoord2 >= 0)
-            {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferTexCoords2.BufferName);
-                GL.VertexAttribPointer((int)program.LocationTexCoord2, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-                GL.EnableVertexAttribArray((int)program.LocationTexCoord2);
-            }
-
-            if (normals != null && program.LocationNormals >= 0)
-            {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, _BufferNormal.BufferName);
-                GL.VertexAttribPointer((int)program.LocationNormals, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-                GL.EnableVertexAttribArray((int)program.LocationNormals);
-            }
         }
 
         public void UpdatePositions(Vector3[] positions)
@@ -530,11 +593,13 @@ namespace GLObjects
 
         public void Draw(int offset, int count)
         {
-            GL.BindVertexArray(ArrayName);
+            GL.BindVertexArray(ArrayName[Program.DataIdx]);
             if (_BufferElems != null)
                 GL.DrawElements(PrimitiveType.Triangles, count, DrawElementsType.UnsignedInt, (IntPtr)(offset * 4));
             else
                 GL.DrawArrays(PrimitiveType.Points, 0, vertexCount);
+
+            GLErr.Check();
         }
 
         public void Draw()
@@ -544,34 +609,16 @@ namespace GLObjects
 
         public void DrawWireframe()
         {
-            GL.BindVertexArray(ArrayName);
+            GL.BindVertexArray(ArrayName[0]);
             if (_BufferWireframeElems == null)
                 BuildWireframeElems();
             GL.DrawElements(PrimitiveType.Lines, elementCountWireframe, DrawElementsType.UnsignedInt, IntPtr.Zero);
         }
 
-        private int elementCount = 0;
-        private int elementCountWireframe = 0;
-        private int vertexCount = 0;
-
-        public readonly int ArrayName;
-
-        private readonly GLObjects.BufferBase _BufferPosition;
-        private readonly GLObjects.BufferBase _BufferNormal;
-        private readonly GLObjects.BufferBase _BufferElems;
-
-        private readonly GLObjects.BufferBase _BufferTexCoords0;
-        private readonly GLObjects.BufferBase _BufferTexCoords1;
-        private readonly GLObjects.BufferBase _BufferTexCoords2;
-        private GLObjects.Buffer<uint> _BufferWireframeElems;
-        private readonly Program _Program;
-
-        public Program Program { get { return _Program; } }
-        uint[] ElementArray = null;
-
         public void Dispose()
         {
-            GL.DeleteVertexArray(ArrayName);
+            GL.DeleteVertexArray(ArrayName[0]);
+            GL.DeleteVertexArray(ArrayName[1]);
 
             _BufferPosition.Dispose();
             _BufferTexCoords0.Dispose();

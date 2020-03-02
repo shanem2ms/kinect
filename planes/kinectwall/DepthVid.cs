@@ -205,9 +205,9 @@ namespace kinectwall
                 lastFrame = frameIdx;
                 needRefresh = false;
             }
-            
-            GL.UseProgram(programPlanes.ProgramName);
-            GL.UniformMatrix4(programPlanes.LocationMVP, false, ref viewProj);
+
+            programPlanes.Use(0);
+            programPlanes.SetMat4("uMVP", ref viewProj);
             genVertexArray.Draw(0, genCount);
             /*
             GL.UseProgram(program.ProgramName);

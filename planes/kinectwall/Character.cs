@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
 using System.Linq;
 using ai = Assimp;
 using aic = Assimp.Configs;
@@ -23,7 +25,7 @@ using System.Drawing.Imaging;
 /// </summary>
 namespace kinectwall
 {  
-    class Character
+    class Character : KinectData.SceneNode
     {
         public class Bone
         {
@@ -58,13 +60,16 @@ namespace kinectwall
         public class Node : KinectData.SceneNode
         {
             public Node parent = null;
-            public List<Node> children;
+            public ObservableCollection<SceneNode> children;
             public JointTransform bindTransform = JointTransform.Identity;
             JointTransform overrideTransform;
             bool useOverride = false;
             public JointType? kinectJoint;
             public Vector3 color;
             public List<Key>[] keys = new List<Key>[3];
+
+
+            public override ObservableCollection<SceneNode> Nodes => children;
 
             public Matrix4 Transform => useOverride ? overrideTransform.M4 : 
                 bindTransform.M4;
@@ -242,6 +247,7 @@ namespace kinectwall
         public List<Vertex> vertices = new List<Vertex>();
         public List<uint> elems = new List<uint>();
         public List<Mesh> meshes = new List<Mesh>();
+        public Program program;
         public VertexArray vertexArray;
         public Node Root;
         public Bone[] allBones;
@@ -250,6 +256,16 @@ namespace kinectwall
         string loadPath;
         public Material[] materials;
         public Vector3 footPos;
+
+
+        ObservableCollection<SceneNode> nodes = new ObservableCollection<SceneNode>();
+        public override ObservableCollection<SceneNode> Nodes => nodes;
+
+        public Character(string path) :
+            base(Path.GetFileName(path))
+        {
+            Load(path);
+        }
 
         void GetAllBones(List<Bone> bones)
         {
@@ -297,9 +313,89 @@ namespace kinectwall
                 }
             }
         }
-
-        public void Load(string path, Program program)
+        static float[] StructArrayToFloatArray<T>(T[] _array) where T : struct
         {
+            int tSize = Marshal.SizeOf(typeof(T)) * _array.Length;
+            IntPtr arrPtr = Marshal.AllocHGlobal(tSize);
+            long LongPtr = arrPtr.ToInt64(); // Must work both on x86 and x64
+            for (int idx = 0; idx < _array.Length; idx++)
+            {
+                IntPtr ptr = new IntPtr(LongPtr);
+                Marshal.StructureToPtr(_array[idx], ptr, false);
+                LongPtr += Marshal.SizeOf(typeof(T));
+            }
+
+            int uSize = Marshal.SizeOf(typeof(float));
+            float[] outVals = new float[tSize / uSize];
+            Marshal.Copy((IntPtr)arrPtr, outVals, 0, outVals.Length);
+            Marshal.FreeHGlobal(arrPtr);
+            return outVals;
+        }
+        int boneMatrixLoc = -1;
+
+        protected override void OnRender(RenderData renderData)
+        {
+            program.Use(renderData.isPick ? 1 : 0);
+            renderData.ActiveProgram = program;
+            renderData.ActiveVA = this.vertexArray;
+
+            Matrix4[] mats = this.allBones.Select(b => (
+                b.offsetMat.M4 *
+                b.node.WorldTransform *
+                this.meshes[b.meshIdx].node.WorldTransform.Inverted())).ToArray();
+            float[] flvals = StructArrayToFloatArray<Matrix4>(mats);
+
+            if (boneMatrixLoc < 0)
+                boneMatrixLoc = this.program.GetLoc("boneMatrices");
+            List<Matrix4> matList = new List<Matrix4>();
+
+            GL.UniformMatrix4(this.program.GetLoc("gBones"), flvals.Length / 16, false, flvals);
+            this.program.Set1("gUseBones", 1);
+            Vector3[] boneColors = this.allBones.Select(b => b.node.color).ToArray();
+            float[] fvColors = new float[boneColors.Length * 3];
+
+            for (int bIdx = 0; bIdx < boneColors.Length; ++bIdx)
+            {
+                fvColors[bIdx * 3] = boneColors[bIdx].X;
+                fvColors[bIdx * 3 + 1] = boneColors[bIdx].Y;
+                fvColors[bIdx * 3 + 2] = boneColors[bIdx].Z;
+            }
+            GL.Uniform3(this.program.GetLoc("gBonesColor"), fvColors.Length / 3, fvColors);
+            this.program.Set1("diffuseMap", 0);
+
+            // Use the vertex array
+            foreach (Character.Mesh mesh in this.meshes)
+            {
+                Matrix4 matWorldViewProj =
+                    mesh.node.WorldTransform * renderData.viewProj;
+
+                if (renderData.isPick)
+                {
+                    program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
+                        ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
+                        ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
+                        1));
+                    renderData.pickObjects.Add(this);
+                    renderData.pickIdx++;
+                }
+                else
+                {
+                    if (mesh.materialIdx >= 0)
+                    {
+                        Character.Material mat = this.materials[mesh.materialIdx];
+                        if (mat.diffTex != null) mat.diffTex.glTexture.BindToIndex(0);
+                    }
+                }
+                this.program.SetMat4("uMVP", ref renderData.viewProj);
+                this.vertexArray.Draw(mesh.offset, mesh.count);
+            }
+
+            base.OnRender(renderData);
+        }
+
+        public void Load(string path)
+        {
+            this.program = Program.FromFiles("Character.vert", "Character.frag");
             ai.AssimpContext importer = new ai.AssimpContext();
             importer.SetConfig(new aic.NormalSmoothingAngleConfig(66.0f));
 
@@ -308,6 +404,7 @@ namespace kinectwall
 
             Dictionary<string, Character.Node> nodeDict = new Dictionary<string, Character.Node>();
             this.Root = BuildModelNodes(nodeDict, model.RootNode);
+            this.nodes.Add(this.Root);
 
             BuildMaterials(model);
             BuildMeshes(model, model.RootNode, nodeDict, 0);
@@ -470,7 +567,7 @@ namespace kinectwall
             n.color = GetJointColor(n.kinectJoint);
 
             if (node.HasChildren)
-                n.children = new List<Character.Node>();
+                n.children = new ObservableCollection<SceneNode>();
             for (int i = 0; i < node.ChildCount; i++)
             {
                 Character.Node mn = BuildModelNodes(nodeDict, node.Children[i]);

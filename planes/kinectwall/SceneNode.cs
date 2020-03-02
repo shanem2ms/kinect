@@ -9,6 +9,15 @@ namespace KinectData
 {
     public class SceneNode
     {
+        public class RenderData
+        {
+            public OpenTK.Matrix4 viewProj;
+            public bool isPick;
+            public List<SceneNode> pickObjects;
+            public int pickIdx;
+            public GLObjects.Program ActiveProgram;
+            public GLObjects.VertexArray ActiveVA;
+        }
         protected string name;
         public string Name => name;
         public virtual ObservableCollection<SceneNode> Nodes { get => null; }
@@ -23,6 +32,17 @@ namespace KinectData
         protected SceneNode(string _n)
         {
             name = _n;
+        }
+
+        virtual protected void OnRender(RenderData renderData) 
+        { 
+            if (Nodes != null)
+            {
+                foreach (SceneNode child in Nodes)
+                {
+                    child.OnRender(renderData);
+                }
+            }
         }
 
         public void GetAllObjects<T>(List<T> objlist) where T : class
@@ -61,5 +81,11 @@ namespace KinectData
 
         }
         public ObservableCollection<SceneNode> Children = new ObservableCollection<SceneNode>();
+
+        public void Render(RenderData renderData)
+        {
+            this.OnRender(renderData);
+        }
+
     }
 }

@@ -19,42 +19,12 @@ namespace kinectwall
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-
-        /// <summary>
-        /// Radius of drawn hand circles
-        /// </summary>
-        private const double HandSize = 30;
-
-        /// <summary>
-        /// Thickness of drawn joint lines
-        /// </summary>
-        private const double JointThickness = 3;
-
-        /// <summary>
-        /// Thickness of clip edge rectangles
-        /// </summary>
-        private const double ClipBoundsThickness = 10;
-
-        /// <summary>
-        /// Constant for clamping Z values of camera space points from being negative
-        /// </summary>
-        private const float InferredZPositionClamp = 0.1f;
-
-        /// <summary>
-        /// Width of display (depth space)
-        /// </summary>
-        private int displayWidth;
-
-        /// <summary>
-        /// Height of display (depth space)
-        /// </summary>
-        private int displayHeight;
-
         Scene scene = null;
         BodyViz bodyViz = null;
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
-        CharViz character;
+        CharViz charviz;
+        Character character;
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
 
@@ -80,18 +50,14 @@ namespace kinectwall
         /// </summary>
         public MainWindow()
         {
-
             BulletSharp.DebugDrawModes[] dmodes = (BulletSharp.DebugDrawModes[])Enum.GetValues(typeof(BulletSharp.DebugDrawModes));
             bulletDebugDraw =
                 dmodes.Select(dm => new BulletDebugDraw() { debugDrawMode = dm, 
                     OnCheckedChanged = OnBulletDebugCheckChange
                 }).ToArray();
-            // get size of joint space
-            this.displayWidth = 1024;
-            this.displayHeight = 768;
             // use the window object as the view model in this simple example
             this.DataContext = this;
-
+            
             // initialize the components (controls) of the window
             this.InitializeComponent();
 
@@ -132,6 +98,7 @@ namespace kinectwall
 
         Matrix4 rotMatrix = Matrix4.CreateRotationY((float)Math.PI);
         Matrix4 rotMatrixDn;
+        Vector3 curPosDn;
         private void GlControl_MouseUp(object sender, System.Windows.Forms.MouseEventArgs e)
         {
             mouseDownPt = null;
@@ -142,18 +109,36 @@ namespace kinectwall
             System.Drawing.Point curPt = e.Location;
             if (mouseDownPt != null)
             {
-                yRot = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
-                xRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.001f;
                 if (e.Button == System.Windows.Forms.MouseButtons.Left ||
                     e.Button == System.Windows.Forms.MouseButtons.Middle)
                 {
-                    Matrix4 rotdiff =
-                        Matrix4.CreateRotationX(xRot) *
-                        Matrix4.CreateRotationY(yRot);
-                    this.rotMatrix = this.rotMatrixDn * rotdiff;
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                    {
+                        float xOffset = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
+                        float yOffset = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.001f;
+
+                        Matrix4 viewInv = this.viewMat.Inverted();
+                        Vector3 zd = Vector3.TransformNormal(Vector3.UnitZ, viewInv).Normalized();
+                        Vector3 xd = Vector3.TransformNormal(Vector3.UnitX, viewInv).Normalized();
+                        Vector3 yd = Vector3.TransformNormal(Vector3.UnitY, viewInv).Normalized();
+
+                        Vector3 m = new Vector3(-xOffset, yOffset, 0);
+                        curPos = curPosDn + (m.X * xd + m.Y * yd +
+                            m.Z * zd);
+                    }
+                    else
+                    {
+                        yRot = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
+                        xRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.001f;
+                        Matrix4 rotdiff =
+                            Matrix4.CreateRotationX(xRot) *
+                            Matrix4.CreateRotationY(yRot);
+                        this.rotMatrix = this.rotMatrixDn * rotdiff;
+                    }
                 }
                 else if (e.Button == System.Windows.Forms.MouseButtons.Right)
                 {
+                    yRot = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
                     this.rotMatrix = this.rotMatrixDn * Matrix4.CreateRotationZ(yRot);
                 }
                 glControl.Invalidate();
@@ -167,6 +152,7 @@ namespace kinectwall
             {
                 mouseDownPt = e.Location;
                 this.rotMatrixDn = this.rotMatrix;
+                this.curPosDn = this.curPos;
                 yRotDn = yRot;
                 xRotDn = xRot;
             }
@@ -210,10 +196,13 @@ namespace kinectwall
                 scene = new Scene(pickProgram);
 
             //bodyViz = new BodyViz(pickProgram);
+            
+            this.character = new Character(App.CharacterFile);
+            this.SceneRoot.Nodes.Add(this.character);
 
             if (App.CharacterFile != null)
-                character = new CharViz(App.CharacterFile);
-
+                charviz = new CharViz(this.character);
+                
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
             glControl.Paint += GlControl_Paint;
             glControl.MouseDown += GlControl_MouseDown;
@@ -363,7 +352,15 @@ namespace kinectwall
 
             Matrix4 viewProj = viewMat * projectionMat;
 
-            scene.Render(viewProj);
+            KinectData.SceneNode.RenderData rData = 
+                new KinectData.SceneNode.RenderData();
+
+            rData.isPick = false;
+            rData.viewProj = viewProj;
+
+            sceneRoot.Render(rData);
+
+            //scene.Render(viewProj);
             long timeStamp = 0;
             if (depthVid != null)
                 timeStamp = depthVid.Render(viewProj);
@@ -371,8 +368,8 @@ namespace kinectwall
                 curFrame.SetJointColor(jtSelected, new Vector3(1, 1, 0));
             //if (curFrame != null && (visibleBits & 1) != 0)
             //    bodyViz.Render(curFrame, viewProj);
-            if ((visibleBits & 2) != 0)
-                character.Render(curFrame, viewProj);
+            //if ((visibleBits & 2) != 0)
+            //    charviz.Render(curFrame, viewProj);
 
             if (isPlaying) frametime += framerate;
 
@@ -413,14 +410,16 @@ namespace kinectwall
             Matrix4 lookTrans = rotMatrix.Inverted() * Matrix4.CreateTranslation(curPos);
             Matrix4 viewProj = viewMat * projectionMat;
 
-            List<object> pickObjects = new List<object>();
-            this.viewMat = lookTrans.Inverted();
-
-            GL.UseProgram(pickProgram.ProgramName);
             int idxOffset = 50;
-            //if (bodyViz != null)
-            //    bodyViz.Pick(curFrame, viewProj, pickObjects, idxOffset);
-            scene.Pick(viewProj, pickObjects, idxOffset);
+            KinectData.SceneNode.RenderData rData =
+                new KinectData.SceneNode.RenderData();
+
+            rData.pickObjects = new List<KinectData.SceneNode>();
+            rData.isPick = true;
+            rData.viewProj = viewProj;
+            rData.pickIdx = idxOffset;
+
+            sceneRoot.Render(rData);
 
             if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))
                 pixels = new GLPixel[glControl.Width * glControl.Height];
@@ -431,9 +430,9 @@ namespace kinectwall
             idx -= idxOffset;
 
             if (SelectedObject != null) SelectedObject.IsSelected = false;
-            if (idx >= 0 && idx < pickObjects.Count)
+            if (idx >= 0 && idx < rData.pickObjects.Count)
             {
-                SelectedObject = pickObjects[idx] as KinectData.SceneNode;
+                SelectedObject = rData.pickObjects[idx] as KinectData.SceneNode;
                 SelectedObject.IsSelected = true;
             }
             else

@@ -12,9 +12,7 @@ namespace kinectwall
     class Scene
     {
         private Program program;
-        private Program pickProgram;
         private VertexArray vertexArray;
-        private VertexArray vertexArrayPick;
         private VertexArray faceArray = null;
         private bool faceVisible = false;
         public bool IsInitialized = false;
@@ -27,9 +25,7 @@ namespace kinectwall
         public Scene(Program _pickProgram)
         {
             program = Program.FromFiles("Main.vert", "Main.frag");
-            pickProgram = _pickProgram;
             vertexArray = Cube.MakeCube(program);
-            vertexArrayPick = Cube.MakeCube(pickProgram);
         }
 
         Random r = new Random();
@@ -79,7 +75,7 @@ namespace kinectwall
         {
             if (firstDbgDraw)
             {
-                GL.UseProgram(program.ProgramName);
+                GL.UseProgram(program.D.pgm);
                 program.Set3("lightPos", new Vector3(2, 5, 2));
             }
 
@@ -96,7 +92,7 @@ namespace kinectwall
                 Matrix4.CreateFromQuaternion(q) *
                     Matrix4.CreateTranslation(offset);
             Matrix4 matWorldViewProj = matWorld * viewProj;
-            GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+            program.SetMat4("uMVP", ref matWorldViewProj);
 
             program.SetMat4("uWorld", ref matWorld);
             Matrix4 matWorldInvT = matWorld.Inverted();
@@ -351,8 +347,7 @@ namespace kinectwall
         {
             firstDbgDraw = true;
             // Select the program for drawing
-            GL.UseProgram(program.ProgramName);            
-
+            program.Use(0);
             rootNode.OnSceneNode<KinectData.JointNode>((jn) =>
             {                
                 program.Set3("meshColor", jn.color);
@@ -371,7 +366,7 @@ namespace kinectwall
                 matWorldInvT.Transpose();
                 program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
 
-                GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                program.SetMat4("uMVP", ref matWorldViewProj);
                 // Use the vertex array
                 vertexArray.Draw();
             });
@@ -379,16 +374,18 @@ namespace kinectwall
             if (faceArray !=null)
             {
                 Matrix4 matWorldViewProj = viewProj;
-                GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                program.SetMat4("uMVP", ref matWorldViewProj);
                 program.Set1("ambient", 1.0f);
                 program.Set3("meshColor", new Vector3(0,1,1));
                 faceArray.DrawWireframe();
             }
+
         }
 
         public void Pick(Matrix4 viewProj,
             List<object> pickObjects, int offset)
         {
+            program.Use(1);
             List<RigidBody> rigidBodies = new List<RigidBody>();
             rootNode.GetAllObjects(rigidBodies);
             int idx = offset;
@@ -398,11 +395,11 @@ namespace kinectwall
                 Matrix4 matWorld = Matrix4.CreateScale(meshInfo.scale) *
                     obj.WorldMatrix;
                 Matrix4 matWorldViewProj = matWorld * viewProj;
-                pickProgram.Set4("pickColor", new Vector4((idx & 0xFF) / 255.0f,
+                program.Set4("pickColor", new Vector4((idx & 0xFF) / 255.0f,
                     ((idx >> 8) & 0xFF) / 255.0f,
                     ((idx >> 16) & 0xFF) / 255.0f,
                     1));
-                GL.UniformMatrix4(pickProgram.LocationMVP, false, ref matWorldViewProj);
+                program.SetMat4("uMVP", ref matWorldViewProj);
                 vertexArray.Draw();
                 pickObjects.Add(obj);
                 idx++;

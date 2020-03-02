@@ -39,7 +39,7 @@ namespace kinectwall
                         ((idx >> 8) & 0xFF) / 255.0f,
                         ((idx >> 16) & 0xFF) / 255.0f, 
                         1));
-                    GL.UniformMatrix4(pickProgram.LocationMVP, false, ref matWorldViewProj);
+                    pickProgram.SetMat4("uMVP", ref matWorldViewProj);
                     vertexArray.Draw();
                     pickObjects.Add(jn);
                     idx++;
@@ -49,8 +49,7 @@ namespace kinectwall
 
         public void Render(KinectData.Frame frame, Matrix4 viewProj)
         {
-            // Select the program for drawing
-            GL.UseProgram(program.ProgramName);
+            program.Use(0);
             foreach (Body body in frame.bodies.Values)
             {
                 body.top.OnSceneNode<JointNode>((jn) =>
@@ -64,7 +63,7 @@ namespace kinectwall
                         Matrix4.CreateTranslation(0, 0, 0) *
                         worldMat * viewProj;
                     program.Set3("meshColor", new Vector3(1, 0, 0));
-                    GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                    program.SetMat4("uMVP", ref matWorldViewProj);
                     vertexArray.Draw();
 
                     matWorldViewProj = matWorldViewProj =
@@ -73,7 +72,7 @@ namespace kinectwall
                             Matrix4.CreateTranslation(0, 0, 0) *
                             worldMat * viewProj;
                     program.Set3("meshColor", new Vector3(0, 1, 0));
-                    GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                    program.SetMat4("uMVP", ref matWorldViewProj);
                     vertexArray.Draw();
 
                     matWorldViewProj = matWorldViewProj =
@@ -82,7 +81,7 @@ namespace kinectwall
                             Matrix4.CreateTranslation(0, 0, 0) *
                             worldMat * viewProj;
                     program.Set3("meshColor", new Vector3(0, 0, 1));
-                    GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                    program.SetMat4("uMVP", ref matWorldViewProj);
                     vertexArray.Draw();
 
                     Vector3 color = new Vector3(0.5f, 1.0f, 0.5f);
@@ -96,7 +95,7 @@ namespace kinectwall
                         Matrix4.CreateScale(0.01f, jn.JointLength * 0.5f, 0.01f) *
                         worldMat * viewProj;
                     program.Set3("meshColor", color);
-                    GL.UniformMatrix4(program.LocationMVP, false, ref matWorldViewProj);
+                    program.SetMat4("uMVP", ref matWorldViewProj);
                     vertexArray.Draw();
                 });
             }
