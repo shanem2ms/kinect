@@ -22,6 +22,8 @@ namespace KinectData
         public string Name => name;
         public virtual ObservableCollection<SceneNode> Nodes { get => null; }
 
+        public virtual OpenTK.Matrix4 WorldMatrix => OpenTK.Matrix4.Identity;
+
         public bool IsSelected = false;
 
         public SceneNode this[string name]

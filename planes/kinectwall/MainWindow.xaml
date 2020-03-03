@@ -3,16 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:kinectwall"
+        xmlns:kw="clr-namespace:kinectwall"
         xmlns:kd="clr-namespace:KinectData"
+        xmlns:char="clr-namespace:Character"
         xmlns:opengl="clr-namespace:OpenGL;assembly=OpenGL.Net.WinForms"
         xmlns:opentk="clr-namespace:OpenTK;assembly=OpenTK.GLControl"
         mc:Ignorable="d"        
         Title="MainWindow" Height="800" Width="1200" Loaded="Window_Loaded">
     <Window.Resources>
         <ResourceDictionary>
-           
-            <DataTemplate x:Key="BulletDraw" DataType="{x:Type local:BulletDebugDraw}">
+            <DataTemplate x:Key="BulletDraw" DataType="{x:Type kw:BulletDebugDraw}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -111,7 +111,7 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <GridSplitter Grid.Column="1"/>
-                                    <local:TransformWidget DataContext="{Binding LocalTransform}" />
+                                    <kw:TransformWidget DataContext="{Binding LocalTransform}" />
                                     <Label Grid.Row="1" Content="WorldMat"/>
                                     <TextBlock Grid.Row="1" Grid.Column="2"
                         Text="{Binding WorldMat}" TextWrapping="Wrap" />
@@ -120,7 +120,7 @@
                         Text="{Binding JointLength}" />
                                 </Grid>
                             </DataTemplate>
-                            <DataTemplate DataType="{x:Type local:RigidBody}">
+                            <DataTemplate DataType="{x:Type kw:RigidBody}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -137,6 +137,11 @@
                                     <Label Content="WorldMatrix"/>
                                     <TextBlock Grid.Column="2"
                         Text="{Binding WorldMatrix}" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                            <DataTemplate DataType="{x:Type char:Node}">
+                                <Grid>
+                                    <kw:TransformWidget DataContext="{Binding BindTransform}" />
                                 </Grid>
                             </DataTemplate>
                         </ContentControl.Resources>

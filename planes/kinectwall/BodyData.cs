@@ -373,6 +373,7 @@ namespace KinectData
         public override ObservableCollection<SceneNode> Nodes => children;
         public Matrix4 WorldMat => LocalTransform.M4 * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
+        public override Matrix4 WorldMatrix => WorldMat;
         public JointNode Parent => parent;
 
         public Vector3 OriginalWsPos { get; set; }

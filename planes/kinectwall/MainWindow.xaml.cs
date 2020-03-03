@@ -22,7 +22,7 @@ namespace kinectwall
         BodyViz bodyViz = null;
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
-        Character character;
+        Character.Character character;
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
 
@@ -86,6 +86,7 @@ namespace kinectwall
             }
         }
 
+        Vector3 mouseDownPivot;
         System.Drawing.Point? mouseDownPt;
         System.Drawing.Point? pickPt;
         float xRot = 0.0f;
@@ -126,12 +127,19 @@ namespace kinectwall
                     }
                     else
                     {
-                        yRot = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
+
+                        yRot = (float)(curPt.X - mouseDownPt.Value.X) * -0.001f;
                         xRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.001f;
                         Matrix4 rotdiff =
                             Matrix4.CreateRotationX(xRot) *
                             Matrix4.CreateRotationY(yRot);
-                        this.rotMatrix = this.rotMatrixDn * rotdiff;
+                        Matrix4 lookTrans = Matrix4.CreateTranslation(mouseDownPivot)
+                            * rotdiff *
+                            Matrix4.CreateTranslation(-mouseDownPivot);
+
+                        this.rotMatrix = lookTrans.ClearScale().ClearTranslation();
+                        this.curPos = lookTrans.ExtractTranslation();
+                        //this.rotMatrix = this.rotMatrixDn * rotdiff;
                     }
                 }
                 else if (e.Button == System.Windows.Forms.MouseButtons.Right)
@@ -148,6 +156,9 @@ namespace kinectwall
             if (currentTool == Tools.Camera || 
                 e.Button == System.Windows.Forms.MouseButtons.Middle)
             {
+                mouseDownPivot = SelectedObject != null ? SelectedObject.WorldMatrix.ExtractTranslation() :
+                    Vector3.Zero;
+
                 mouseDownPt = e.Location;
                 this.rotMatrixDn = this.rotMatrix;
                 this.curPosDn = this.curPos;
@@ -190,7 +201,7 @@ namespace kinectwall
                 bodyTimeLength = tr.Item2 - bodyTimeStart;
             }
 
-            this.character = new Character(App.CharacterFile);
+            this.character = new Character.Character(App.CharacterFile);
             this.SceneRoot.Nodes.Add(this.character);               
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
             glControl.Paint += GlControl_Paint;
@@ -331,7 +342,7 @@ namespace kinectwall
             //GL.CullFace(CullFaceMode.Front);
             GL.BlendFunc(BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
 
-            Matrix4 lookTrans = rotMatrix.Inverted() * Matrix4.CreateTranslation(curPos);
+            Matrix4 lookTrans = rotMatrix * Matrix4.CreateTranslation(curPos);
             this.viewMat = lookTrans.Inverted();
 
             Matrix4 viewProj = viewMat * projectionMat;

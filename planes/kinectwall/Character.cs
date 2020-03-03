@@ -23,8 +23,158 @@ using System.Drawing.Imaging;
 ///            -Y Up
 ///         Apply Global Orientation Checked   
 /// </summary>
-namespace kinectwall
-{  
+namespace Character
+{
+    public class Key : IComparable<Key>
+    {
+        public double time;
+        public object val;
+
+        public int CompareTo(Key other)
+        {
+            return time.CompareTo(other.time);
+        }
+    }
+
+    public class Node : KinectData.SceneNode
+    {
+        public Node parent = null;
+        public ObservableCollection<SceneNode> children;
+        public JointTransform BindTransform { get; set; } = JointTransform.Identity;
+        public JointType? kinectJoint;
+        public Vector3 color;
+        public List<Key>[] keys = new List<Key>[3];
+
+        public override Matrix4 WorldMatrix => WorldTransform;
+
+        public override ObservableCollection<SceneNode> Nodes => children;
+
+        public Matrix4 Transform => BindTransform.M4;
+
+        public Node(string _n) : base(_n)
+        {
+        }
+
+        protected override void OnRender(RenderData renderData)
+        {
+            Program program = renderData.ActiveProgram;
+
+            if (this.kinectJoint != null)
+            {
+                Matrix4 matWorld =
+                        Matrix4.CreateScale(
+                        new Vector3(0.01f, 0.01f, 0.01f)) *
+                        this.WorldTransform;
+                Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
+                program.SetMat4("uWorld", ref matWorld);
+
+                if (renderData.isPick)
+                {
+                    program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
+                        ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
+                        ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
+                        1));
+                    renderData.pickObjects.Add(this);
+                    renderData.pickIdx++;
+
+                }
+                else
+                {
+                    program.Set3("meshColor", this.color);
+                    program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
+                    program.Set3("lightPos", new Vector3(2, 5, 2));
+                    Matrix4 matWorldInvT = matWorld.Inverted();
+                    matWorldInvT.Transpose();
+                    program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
+                }
+
+                program.SetMat4("uMVP", ref matWorldViewProj);
+                // Use the vertex array
+                renderData.ActiveVA.Draw();
+
+            }
+            base.OnRender(renderData);
+        }
+
+        public void OutputNodeDbg(int level)
+        {
+            Debug.WriteLine(new string(' ', level * 2) + $"KJ={kinectJoint} {name} bt = {BindTransform}");
+
+            /*
+            Matrix4 wt = WorldTransform;
+            Vector3 wpos = Vector3.TransformPosition(Vector3.Zero, WorldTransform);
+            Vector3 xdir = Vector3.TransformVector(Vector3.UnitX, WorldTransform);
+            Vector3 ydir = Vector3.TransformVector(Vector3.UnitY, WorldTransform);
+            Vector3 zdir = Vector3.TransformVector(Vector3.UnitZ, WorldTransform);
+            Debug.WriteLine(new string(' ', level * 2) + $"---- WT Pos={wpos}  Rot=[x{xdir} y{ydir} z{zdir}]");*/
+            if (this.children != null)
+            {
+                foreach (Node cn in this.children)
+                {
+                    cn.OutputNodeDbg(level + 1);
+                }
+            }
+        }
+
+        public Matrix4 WorldTransform
+        {
+            get
+            {
+                if (parent == null)
+                    return Transform;
+                else
+                    return Transform * parent.WorldTransform;
+            }
+        }
+
+        object Interp(object l, object r, double lerpd)
+        {
+            float lerp = (float)lerpd;
+            if (l is Vector3)
+            {
+                Vector3 vl = (Vector3)l;
+                Vector3 vr = (Vector3)r;
+                return vl * (1 - lerp) + vr * lerp;
+            }
+            else
+            {
+                Quaternion vl = (Quaternion)l;
+                Quaternion vr = (Quaternion)r;
+                return vl * (1 - lerp) + vr * lerp;
+            }
+        }
+
+
+        HashSet<JointType> useRotations = new HashSet<JointType>()
+            {
+                JointType.KneeLeft,
+                JointType.FootLeft,
+                JointType.AnkleLeft,
+            };
+        public void SetBody(Body b, Matrix4 matWorld)
+        {
+            return;
+            if (kinectJoint.HasValue)
+            {
+                JointNode jn = b.jointNodes[kinectJoint.Value];
+                Quaternion q = jn.LocalTransform.rot;
+                PoseData.Joint pj = PoseData.JointsIdx[(int)jn.jt];
+                Quaternion dfp = q * pj.rot.Inverted();
+
+                this.BindTransform.rot = this.BindTransform.rot * dfp;
+                this.color = jn.color;
+            }
+
+            if (children != null)
+            {
+                foreach (Node cn in this.children)
+                {
+                    cn.SetBody(b, matWorld);
+                }
+            }
+        }
+    }
+
     class Character : KinectData.SceneNode
     {
         public class Bone
@@ -33,17 +183,6 @@ namespace kinectwall
             public JointTransform offsetMat;
             public Node node;
             public int idx;
-        }
-
-        public class Key : IComparable<Key>
-        {
-            public double time;
-            public object val;
-
-            public int CompareTo(Key other)
-            {
-                return time.CompareTo(other.time);
-            }
         }
 
         public class Texture
@@ -55,168 +194,6 @@ namespace kinectwall
         public class Material
         {
             public Texture diffTex;
-        }
-
-        public class Node : KinectData.SceneNode
-        {
-            public Node parent = null;
-            public ObservableCollection<SceneNode> children;
-            public JointTransform bindTransform = JointTransform.Identity;
-            JointTransform overrideTransform;
-            bool useOverride = false;
-            public JointType? kinectJoint;
-            public Vector3 color;
-            public List<Key>[] keys = new List<Key>[3];
-
-
-            public override ObservableCollection<SceneNode> Nodes => children;
-
-            public Matrix4 Transform => useOverride ? overrideTransform.M4 : 
-                bindTransform.M4;
-
-            public Node(string _n) : base(_n)
-            {
-            }
-
-            public void OutputNodeDbg(int level)
-            {
-                Debug.WriteLine(new string(' ', level * 2) + $"KJ={kinectJoint} {name} bt = {bindTransform}");
-
-                /*
-                Matrix4 wt = WorldTransform;
-                Vector3 wpos = Vector3.TransformPosition(Vector3.Zero, WorldTransform);
-                Vector3 xdir = Vector3.TransformVector(Vector3.UnitX, WorldTransform);
-                Vector3 ydir = Vector3.TransformVector(Vector3.UnitY, WorldTransform);
-                Vector3 zdir = Vector3.TransformVector(Vector3.UnitZ, WorldTransform);
-                Debug.WriteLine(new string(' ', level * 2) + $"---- WT Pos={wpos}  Rot=[x{xdir} y{ydir} z{zdir}]");*/
-                if (this.children != null)
-                {
-                    foreach (Node cn in this.children)
-                    {
-                        cn.OutputNodeDbg(level + 1);
-                    }
-                }
-            }
-
-            public Matrix4 WorldTransform
-            {
-                get
-                {
-                    if (parent == null)
-                        return Transform;
-                    else
-                        return Transform * parent.WorldTransform;
-                }
-            }
-
-            void SetValue(int i, object val)
-            { 
-                if (i == 0) overrideTransform.scl = (Vector3)val;
-                else if (i == 1) overrideTransform.rot = (Quaternion)val;
-                else if (i == 2) overrideTransform.off = (Vector3)val;
-            }
-
-            object Interp(object l, object r, double lerpd)
-            {
-                float lerp = (float)lerpd;
-                if (l is Vector3)
-                {
-                    Vector3 vl = (Vector3)l;
-                    Vector3 vr = (Vector3)r;
-                    return vl * (1 - lerp) + vr * lerp;
-                }
-                else
-                {
-                    Quaternion vl = (Quaternion)l;
-                    Quaternion vr = (Quaternion)r;
-                    return vl * (1 - lerp) + vr * lerp;
-                }
-            }
-
-            public void SetAnimationTime(double time)
-            {
-                SetAnimationTimeRec(time);
-            }
-
-            void SetAnimationTimeRec(double time)
-            {
-                useOverride = false;
-                for (int i = 0; i < 3; ++i)
-                {
-                    if (keys[i] != null)
-                    {
-                        if (useOverride == false)
-                        {
-                            overrideTransform = this.bindTransform;
-                            useOverride = true;
-                        }
-                        List<Key> lkeys = keys[i];
-                        int index = lkeys.BinarySearch(new Key() { time = time });
-                        if (index >= 0)
-                        {
-                            SetValue(i, lkeys[index].val);
-                        }
-                        else
-                        {
-                            index = ~index;
-                            if (index == 0)
-                                SetValue(i, lkeys[index].val);
-                            else if (index == lkeys.Count)
-                                SetValue(i, lkeys[index - 1].val);
-                            else
-                            {
-                                Key leftKey = lkeys[index - 1];
-                                Key rightKey = lkeys[index];
-                                SetValue(i, Interp(leftKey.val, rightKey.val,
-                                    (time - leftKey.time) / (rightKey.time - leftKey.time)));
-                            }
-                        }
-
-                    }
-                }
-
-                if (this.children != null)
-                {
-                    foreach (Node cn in children)
-                    {
-                        cn.SetAnimationTimeRec(time);
-                    }
-                }
-            }
-
-            
-            HashSet<JointType> useRotations = new HashSet<JointType>()
-            {
-                JointType.KneeLeft,
-                JointType.FootLeft,
-                JointType.AnkleLeft,
-            };
-            public void SetBody(Body b, Matrix4 matWorld)
-            {
-                return;
-                if (kinectJoint.HasValue)
-                {
-                    JointNode jn = b.jointNodes[kinectJoint.Value];
-                    Quaternion q = jn.LocalTransform.rot;
-                    PoseData.Joint pj = PoseData.JointsIdx[(int)jn.jt];
-                    Quaternion dfp = q * pj.rot.Inverted();
-
-                    useOverride = true;
-                    this.overrideTransform = this.bindTransform;
-                    this.overrideTransform.rot = this.bindTransform.rot * dfp;
-                    this.color = jn.color;
-                }
-                else
-                    useOverride = false;
-
-                if (children != null)
-                {
-                    foreach (Node cn in this.children)
-                    {
-                        cn.SetBody(b, matWorld);
-                    }
-                }
-            }
         }
 
         public class Weight
@@ -394,7 +371,7 @@ namespace kinectwall
         {
             this.program = Program.FromFiles("Character.vert", "Character.frag");
             this.bonePrgm = Program.FromFiles("Main.vert", "Main.frag");
-            this.cubeVA = Cube.MakeCube(program);
+            this.cubeVA = kinectwall.Cube.MakeCube(program);
 
             ai.AssimpContext importer = new ai.AssimpContext();
             importer.SetConfig(new aic.NormalSmoothingAngleConfig(66.0f));
@@ -402,7 +379,7 @@ namespace kinectwall
             ai.Scene model = importer.ImportFile(path, ai.PostProcessPreset.TargetRealTimeMaximumQuality);
             this.loadPath = Path.GetDirectoryName(path);
 
-            Dictionary<string, Character.Node> nodeDict = new Dictionary<string, Character.Node>();
+            Dictionary<string, Node> nodeDict = new Dictionary<string, Node>();
             this.Root = BuildModelNodes(nodeDict, model.RootNode);
             this.nodes.Add(this.Root);
 
@@ -484,8 +461,8 @@ namespace kinectwall
                     this.vertexArray);
             }
 
-            program.Use(renderData.isPick ? 1 : 0);
-            renderData.ActiveProgram = program;
+            bonePrgm.Use(renderData.isPick ? 1 : 0);
+            renderData.ActiveProgram = bonePrgm;
             renderData.ActiveVA = cubeVA;
             base.OnRender(renderData);
         }
@@ -514,14 +491,14 @@ namespace kinectwall
             this.materials = mats.ToArray();
         }
 
-        double LoadAnimations(ai.Scene model, Dictionary<string, Character.Node> nodeDict)
+        double LoadAnimations(ai.Scene model, Dictionary<string, Node> nodeDict)
         {
             double maxTime = 0;
             foreach (ai.Animation anim in model.Animations)
             {
                 foreach (ai.NodeAnimationChannel aic in anim.NodeAnimationChannels)
                 {
-                    Character.Node node = nodeDict[aic.NodeName];
+                    Node node = nodeDict[aic.NodeName];
                     if (aic.ScalingKeyCount > 0)
                         node.keys[0] = new List<Key>();
                     foreach (var vk in aic.ScalingKeys)
@@ -578,10 +555,10 @@ namespace kinectwall
             }
         }
 
-        private Node BuildModelNodes(Dictionary<string, Character.Node> nodeDict, ai.Node node)
+        private Node BuildModelNodes(Dictionary<string, Node> nodeDict, ai.Node node)
         {
             Node n = new Node(node.Name);
-            n.bindTransform.M4 = FromMatrix(node.Transform);
+            n.BindTransform.M4 = FromMatrix(node.Transform);
             n.kinectJoint = GetKinectJoint(n.Name);
             n.color = GetJointColor(n.kinectJoint);
 
@@ -589,7 +566,7 @@ namespace kinectwall
                 n.children = new ObservableCollection<SceneNode>();
             for (int i = 0; i < node.ChildCount; i++)
             {
-                Character.Node mn = BuildModelNodes(nodeDict, node.Children[i]);
+                Node mn = BuildModelNodes(nodeDict, node.Children[i]);
                 n.children.Add(mn);
                 mn.parent = n;
             }
@@ -682,7 +659,7 @@ namespace kinectwall
 
         public void SetBody(Body body)
         {
-            Root.bindTransform.off = body.top.LocalTransform.off;
+            Root.BindTransform.off = body.top.LocalTransform.off;
             Vector3 bleftFoot = body.jointNodes[JointType.FootLeft].WorldMat.ExtractTranslation();
             Vector3 brightFoot = body.jointNodes[JointType.FootRight].WorldMat.ExtractTranslation();
             Vector3 bfootPos = (bleftFoot + brightFoot) * 0.5f;
@@ -696,9 +673,9 @@ namespace kinectwall
             Vector3 rightFootPos = crightFoot.node.WorldTransform.ExtractTranslation();
             Vector3 cfootPos = (leftFootPos + rightFootPos) * 0.5f;
 
-            Vector3 bpos = Root.bindTransform.off;
+            Vector3 bpos = Root.BindTransform.off;
             bpos.Y += (bfootPos.Y - cfootPos.Y);
-            Root.bindTransform.off = bpos;
+            Root.BindTransform.off = bpos;
 
             //float bodyToCharRatio = body.bodyData.HeadToSpineSize / this.headToSpineSize;
             //Root.bindTransform.scl = new Vector3(bodyToCharRatio, bodyToCharRatio, bodyToCharRatio);
