@@ -19,11 +19,9 @@ namespace kinectwall
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        Scene scene = null;
         BodyViz bodyViz = null;
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
-        CharViz charviz;
         Character character;
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
@@ -192,17 +190,8 @@ namespace kinectwall
                 bodyTimeLength = tr.Item2 - bodyTimeStart;
             }
 
-            if (scene == null)
-                scene = new Scene(pickProgram);
-
-            //bodyViz = new BodyViz(pickProgram);
-            
             this.character = new Character(App.CharacterFile);
-            this.SceneRoot.Nodes.Add(this.character);
-
-            if (App.CharacterFile != null)
-                charviz = new CharViz(this.character);
-                
+            this.SceneRoot.Nodes.Add(this.character);               
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
             glControl.Paint += GlControl_Paint;
             glControl.MouseDown += GlControl_MouseDown;
@@ -330,11 +319,6 @@ namespace kinectwall
             else
                 curFrame = bodyData?.GetInterpolatedFrame(bodyTimeStart +
                     (frametime % bodyTimeLength));
-
-            if (!scene.IsInitialized)
-                scene.Init(bulletSimulation, sceneRoot);
-            else
-                scene.SetBodyFrame(curFrame);
 
             bulletSimulation.Step();
 

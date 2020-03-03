@@ -89,12 +89,10 @@
     <Compile Include="BodyData.cs" />
     <Compile Include="BulletSimulation.cs" />
     <Compile Include="Character.cs" />
-    <Compile Include="CharViz.cs" />
     <Compile Include="Cube.cs" />
     <Compile Include="DepthVid.cs" />
     <Compile Include="GLMesh.cs" />
     <Compile Include="KinectBody.cs" />
-    <Compile Include="Scene.cs" />
     <Compile Include="SceneNode.cs" />
     <Compile Include="TransformWidget.xaml.cs">
       <DependentUpon>TransformWidget.xaml</DependentUpon>
