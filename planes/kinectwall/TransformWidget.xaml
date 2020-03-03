@@ -7,24 +7,39 @@
              mc:Ignorable="d"              
              d:DesignHeight="400.146" d:DesignWidth="729.155">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Label Content="Rotation X" />
-        <Slider Grid.Column="1" Value="{Binding RotX}" MinWidth="100" Minimum="-180" Maximum="180" />
-        <Label Grid.Column="2" Content="{Binding RotX}" />
-        <Label Grid.Row="1" Content="Rotation Y" />
-        <Slider Grid.Row="1" Grid.Column="1" Value="{Binding RotY}" MinWidth="100" Minimum="-180" Maximum="180" />
-        <Label Grid.Row="1" Grid.Column="2" Content="{Binding RotY}" />
-        <Label Grid.Row="2" Content="Rotation Z" />
-        <Slider Grid.Row="2" Grid.Column="1" Value="{Binding RotZ}" MinWidth="100" Minimum="-180" Maximum="180" />
-        <Label Grid.Row="2" Grid.Column="2" Content="{Binding RotZ}" />
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <Label Content="X" Margin="5"/>
+            <Label Content="{Binding OffX}" />
+            <Label Content="Y" Margin="5"/>
+            <Label Content="{Binding OffY}" />
+            <Label Content="Z" Margin="5"/>
+            <Label Content="{Binding OffZ}" />
+        </StackPanel>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+            </Grid.RowDefinitions>
+            <Label Content="Rotation X" />
+            <Slider Grid.Column="1" Value="{Binding RotX}" MinWidth="100" Minimum="-180" Maximum="180" />
+            <Label Grid.Column="2" Content="{Binding RotX}" />
+            <Label Grid.Row="1" Content="Rotation Y" />
+            <Slider Grid.Row="1" Grid.Column="1" Value="{Binding RotY}" MinWidth="100" Minimum="-180" Maximum="180" />
+            <Label Grid.Row="1" Grid.Column="2" Content="{Binding RotY}" />
+            <Label Grid.Row="2" Content="Rotation Z" />
+            <Slider Grid.Row="2" Grid.Column="1" Value="{Binding RotZ}" MinWidth="100" Minimum="-180" Maximum="180" />
+            <Label Grid.Row="2" Grid.Column="2" Content="{Binding RotZ}" />
+        </Grid>
     </Grid>
 </UserControl>

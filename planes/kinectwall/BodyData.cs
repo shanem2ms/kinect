@@ -40,6 +40,10 @@ namespace KinectData
         }
 
 
+        public float OffX => off.X;
+        public float OffY => off.Y;
+        public float OffZ => off.Z;
+
         public Vector3 EulerRot
         {
             get => rot.ToEuler(); set => rot = Quaternion.FromEulerAngles

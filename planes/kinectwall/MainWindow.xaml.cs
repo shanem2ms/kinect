@@ -60,6 +60,7 @@ namespace kinectwall
             this.InitializeComponent();
 
             App.OnWriteMsg = WriteMsg;
+            this.glControl.MouseWheel += GlControl_MouseWheel;
         }
 
         void WriteMsg(string msg)
@@ -103,6 +104,17 @@ namespace kinectwall
             mouseDownPt = null;
         }
 
+        private void GlControl_MouseWheel(object sender, System.Windows.Forms.MouseEventArgs e)
+        {
+            double multiplier = Math.Pow(2, -e.Delta / (120.0 * 4));
+            mouseDownPivot = SelectedObject != null ? SelectedObject.WorldMatrix.ExtractTranslation() :
+                Vector3.Zero;
+            Vector3 distFromPivot = this.curPos - mouseDownPivot;
+            distFromPivot *= (float)multiplier;
+            curPos = mouseDownPivot + distFromPivot;
+        }
+
+
         private void GlControl_MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
         {
             System.Drawing.Point curPt = e.Location;
@@ -127,19 +139,27 @@ namespace kinectwall
                     }
                     else
                     {
+                        xRot = (float)(curPt.X - mouseDownPt.Value.X) * -0.002f;
+                        yRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.002f;
 
-                        yRot = (float)(curPt.X - mouseDownPt.Value.X) * -0.001f;
-                        xRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.001f;
-                        Matrix4 rotdiff =
-                            Matrix4.CreateRotationX(xRot) *
-                            Matrix4.CreateRotationY(yRot);
-                        Matrix4 lookTrans = Matrix4.CreateTranslation(mouseDownPivot)
-                            * rotdiff *
-                            Matrix4.CreateTranslation(-mouseDownPivot);
+                        float distFromPivot = (curPosDn - mouseDownPivot).Length;
 
-                        this.rotMatrix = lookTrans.ClearScale().ClearTranslation();
-                        this.curPos = lookTrans.ExtractTranslation();
-                        //this.rotMatrix = this.rotMatrixDn * rotdiff;
+                        Vector3 zDir = (curPosDn - mouseDownPivot).Normalized();
+                        Vector3 yDirFrm = Vector3.TransformVector(Vector3.UnitY,
+                            this.rotMatrixDn);
+                        Vector3 xDir = Vector3.Cross(zDir, yDirFrm);
+                        Vector3 yDir = Vector3.Cross(xDir, zDir);
+                        zDir = Quaternion.FromAxisAngle(yDir, xRot) *
+                            Quaternion.FromAxisAngle(xDir, yRot) * zDir;
+                        xDir = Vector3.Cross(zDir, yDir);
+                        yDir = Vector3.Cross(xDir, zDir);
+                        xDir.Normalize();
+                        yDir.Normalize();
+                        zDir.Normalize();
+                        Matrix3 mt = new Matrix3(xDir, yDir, zDir);
+
+                        this.rotMatrix = new Matrix4(mt);
+                        this.curPos = mouseDownPivot + distFromPivot * zDir;
                     }
                 }
                 else if (e.Button == System.Windows.Forms.MouseButtons.Right)
@@ -342,7 +362,7 @@ namespace kinectwall
             //GL.CullFace(CullFaceMode.Front);
             GL.BlendFunc(BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
 
-            Matrix4 lookTrans = rotMatrix * Matrix4.CreateTranslation(curPos);
+            Matrix4 lookTrans = this.rotMatrix * Matrix4.CreateTranslation(curPos);
             this.viewMat = lookTrans.Inverted();
 
             Matrix4 viewProj = viewMat * projectionMat;
