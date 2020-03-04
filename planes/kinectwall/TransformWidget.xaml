@@ -6,6 +6,9 @@
              xmlns:local="clr-namespace:kinectwall"
              mc:Ignorable="d"              
              d:DesignHeight="400.146" d:DesignWidth="729.155">
+    <UserControl.Resources>
+        <local:StringFormatConverter x:Key="StringFormatConverter" />
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -33,13 +36,13 @@
             </Grid.RowDefinitions>
             <Label Content="Rotation X" />
             <Slider Grid.Column="1" Value="{Binding RotX}" MinWidth="100" Minimum="-180" Maximum="180" />
-            <Label Grid.Column="2" Content="{Binding RotX}" />
+            <Label Grid.Column="2" Content="{Binding RotX, Converter={StaticResource StringFormatConverter}}" />
             <Label Grid.Row="1" Content="Rotation Y" />
             <Slider Grid.Row="1" Grid.Column="1" Value="{Binding RotY}" MinWidth="100" Minimum="-180" Maximum="180" />
-            <Label Grid.Row="1" Grid.Column="2" Content="{Binding RotY}" />
+            <Label Grid.Row="1" Grid.Column="2" Content="{Binding RotY, Converter={StaticResource StringFormatConverter}}" />
             <Label Grid.Row="2" Content="Rotation Z" />
             <Slider Grid.Row="2" Grid.Column="1" Value="{Binding RotZ}" MinWidth="100" Minimum="-180" Maximum="180" />
-            <Label Grid.Row="2" Grid.Column="2" Content="{Binding RotZ}" />
+            <Label Grid.Row="2" Grid.Column="2" Content="{Binding RotZ, Converter={StaticResource StringFormatConverter}}" />
         </Grid>
     </Grid>
 </UserControl>

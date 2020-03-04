@@ -61,36 +61,55 @@ namespace Character
 
             if (this.kinectJoint != null)
             {
-                Matrix4 matWorld =
-                        Matrix4.CreateScale(
-                        new Vector3(0.01f, 0.01f, 0.01f)) *
-                        this.WorldTransform;
-                Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
-                program.SetMat4("uWorld", ref matWorld);
-
-                if (renderData.isPick)
+                if (parent != null)
                 {
-                    program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
-                        ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
-                        ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
-                        1));
-                    renderData.pickObjects.Add(this);
-                    renderData.pickIdx++;
+                    Vector3 ppos = parent.WorldTransform.ExtractTranslation();
+                    Matrix4 wt = WorldTransform;
+                    Vector3 pos = wt.ExtractTranslation();
+                    Vector3 offset = (ppos + pos) * 0.5f;
+                    float scale = (ppos - pos).Length * 0.5f;
+                    Vector3 zDir = (pos - ppos).Normalized();
+                    wt = wt.ClearScale().ClearTranslation();
+                    Vector3 yDir = Vector3.TransformVector(Vector3.UnitY, wt);
+                    Vector3 xDir = Vector3.Cross(yDir, zDir);
+                    Matrix3 rotmat = new Matrix3(xDir, yDir, zDir);
+                    /*
+                    Matrix4 matWorld =
+                            Matrix4.CreateScale(
+                            new Vector3(0.01f, 0.01f, 0.01f)) *
+                            this.WorldTransform;*/
+                    Matrix4 matWorld =
+                        Matrix4.CreateScale(0.01f, 0.01f, scale) *
+                        new Matrix4(rotmat) *
+                        Matrix4.CreateTranslation(offset);
 
-                }
-                else
-                {
-                    program.Set3("meshColor", this.color);
-                    program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
-                    program.Set3("lightPos", new Vector3(2, 5, 2));
-                    Matrix4 matWorldInvT = matWorld.Inverted();
-                    matWorldInvT.Transpose();
-                    program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
-                }
+                    Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
+                    program.SetMat4("uWorld", ref matWorld);
 
-                program.SetMat4("uMVP", ref matWorldViewProj);
-                // Use the vertex array
-                renderData.ActiveVA.Draw();
+                    if (renderData.isPick)
+                    {
+                        program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
+                            ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
+                            ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
+                            1));
+                        renderData.pickObjects.Add(this);
+                        renderData.pickIdx++;
+
+                    }
+                    else
+                    {
+                        program.Set3("meshColor", this.color);
+                        program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
+                        program.Set3("lightPos", new Vector3(2, 5, 2));
+                        Matrix4 matWorldInvT = matWorld.Inverted();
+                        matWorldInvT.Transpose();
+                        program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
+                    }
+
+                    program.SetMat4("uMVP", ref matWorldViewProj);
+                    // Use the vertex array
+                    renderData.ActiveVA.Draw();
+                }
 
             }
             base.OnRender(renderData);
@@ -99,14 +118,6 @@ namespace Character
         public void OutputNodeDbg(int level)
         {
             Debug.WriteLine(new string(' ', level * 2) + $"KJ={kinectJoint} {name} bt = {BindTransform}");
-
-            /*
-            Matrix4 wt = WorldTransform;
-            Vector3 wpos = Vector3.TransformPosition(Vector3.Zero, WorldTransform);
-            Vector3 xdir = Vector3.TransformVector(Vector3.UnitX, WorldTransform);
-            Vector3 ydir = Vector3.TransformVector(Vector3.UnitY, WorldTransform);
-            Vector3 zdir = Vector3.TransformVector(Vector3.UnitZ, WorldTransform);
-            Debug.WriteLine(new string(' ', level * 2) + $"---- WT Pos={wpos}  Rot=[x{xdir} y{ydir} z{zdir}]");*/
             if (this.children != null)
             {
                 foreach (Node cn in this.children)
