@@ -161,7 +161,7 @@ namespace kinectwall
                         xDir.Normalize();
                         yDir.Normalize();
                         zDir.Normalize();
-                        Matrix3 mt = new Matrix3(xDir, yDir, zDir);
+                        Matrix3 mt = new Matrix3(-xDir, yDir, zDir);
 
                         this.rotMatrix = new Matrix4(mt);
                         this.curPos = mouseDownPivot + distFromPivot * zDir;

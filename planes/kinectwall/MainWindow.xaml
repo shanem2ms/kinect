@@ -79,6 +79,7 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="9" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="9" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TreeView x:Name="SceneTree" ItemsSource="{Binding SceneRoot.Nodes}"
@@ -101,8 +102,10 @@
                                 <StackPanel>
                                     <Label Content="{Binding JType}" Background="YellowGreen" />
                                     <kw:TransformWidget DataContext="{Binding LocalTransform}" />
-                                    <Label Content="WorldMat"/>
-                                    <TextBlock Text="{Binding WorldMat}" TextWrapping="Wrap" />
+                                    <Label Content="WorldPos"/>
+                                    <TextBlock Text="{Binding WorldPos}" TextWrapping="Wrap" />
+                                    <Label Content="Orig WorldPos"/>
+                                    <TextBlock Text="{Binding OriginalWsPos}" TextWrapping="Wrap" />
                                     <Label Grid.Row="3" Content="JointLength"/>
                                     <TextBlock VerticalAlignment="Center" Text="{Binding JointLength}" />
                                 </StackPanel>
@@ -123,7 +126,7 @@
                                     <GridSplitter Grid.Column="1"/>
                                     <Label Content="WorldMatrix"/>
                                     <TextBlock Grid.Column="2"
-                        Text="{Binding WorldMatrix}" TextWrapping="Wrap" />
+                                Text="{Binding WorldPos}" TextWrapping="Wrap" />
                                 </Grid>
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type char:Node}">
@@ -134,7 +137,8 @@
                             </DataTemplate>
                         </ContentControl.Resources>
                     </ContentControl>
-                    <TextBox x:Name="OutputLog" Grid.Row="3" TextWrapping="Wrap"
+                    <GridSplitter Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                    <TextBox x:Name="OutputLog" Grid.Row="4" TextWrapping="Wrap"
                               AcceptsReturn="True"
                               VerticalScrollBarVisibility="Visible" />
                 </Grid>

@@ -182,7 +182,6 @@ namespace BodyData
             b.top.SetJoints(PoseData.JointsIdx);
             b.top.SetJointLengths(Matrix4.Identity);
 
-
             return b;
         }
 
@@ -386,6 +385,7 @@ namespace BodyData
         public Matrix4 WorldMat => LocalTransform.M4 * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
         public override Matrix4 WorldMatrix => WorldMat;
+        public Vector3 WorldPos => WorldMat.ExtractTranslation();
         public JointNode Parent => parent;
 
         public Vector3 OriginalWsPos { get; set; }
@@ -485,9 +485,17 @@ namespace BodyData
             Vector3 t2 = Vector3.Zero;
             if (pj != null)
             {
-                t2 = Vector3.Transform(pj.trn, pj.rot.Inverted());
-                this.LocalTransform = new JointTransform(Matrix4.CreateFromQuaternion(pj.rot) *
-                    Matrix4.CreateTranslation(parentTranslate));
+                if (this.JType == JointType.SpineBase)
+                {
+                    this.LocalTransform = new JointTransform(Matrix4.CreateFromQuaternion(pj.rot) *
+                        Matrix4.CreateTranslation(pj.trn));
+                }
+                else
+                {
+                    t2 = Vector3.Transform(pj.trn, pj.rot.Inverted());
+                    this.LocalTransform = new JointTransform(Matrix4.CreateFromQuaternion(pj.rot) *
+                        Matrix4.CreateTranslation(parentTranslate));
+                }
             }
             else
             {
