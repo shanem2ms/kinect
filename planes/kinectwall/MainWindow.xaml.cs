@@ -377,7 +377,9 @@ namespace kinectwall
 
             rData.isPick = false;
             rData.viewProj = viewProj;
-
+            rData.passIdx = 0;
+            sceneRoot.Render(rData);
+            rData.passIdx = 1;
             sceneRoot.Render(rData);
 
             //scene.Render(viewProj);
@@ -438,7 +440,9 @@ namespace kinectwall
             rData.isPick = true;
             rData.viewProj = viewProj;
             rData.pickIdx = idxOffset;
-
+            rData.passIdx = 0;
+            sceneRoot.Render(rData);
+            rData.passIdx = 1;
             sceneRoot.Render(rData);
 
             if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))

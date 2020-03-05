@@ -95,31 +95,17 @@
                         </TreeView.Resources>
                     </TreeView>
                     <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                    <ContentControl Grid.Row="2"
-                        Content="{Binding ElementName=SceneTree, Path=SelectedItem}">
+                    <ContentControl Grid.Row="2" Content="{Binding ElementName=SceneTree, Path=SelectedItem}">
                         <ContentControl.Resources>
                             <DataTemplate DataType="{x:Type kd:JointNode}" >
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="5" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="9" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <GridSplitter Grid.Column="1"/>
+                                <StackPanel>
+                                    <Label Content="{Binding JType}" Background="YellowGreen" />
                                     <kw:TransformWidget DataContext="{Binding LocalTransform}" />
-                                    <Label Grid.Row="1" Content="WorldMat"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="2"
-                        Text="{Binding WorldMat}" TextWrapping="Wrap" />
+                                    <Label Content="WorldMat"/>
+                                    <TextBlock Text="{Binding WorldMat}" TextWrapping="Wrap" />
                                     <Label Grid.Row="3" Content="JointLength"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="2" VerticalAlignment="Center"
-                        Text="{Binding JointLength}" />
-                                </Grid>
+                                    <TextBlock VerticalAlignment="Center" Text="{Binding JointLength}" />
+                                </StackPanel>
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type kw:RigidBody}">
                                 <Grid>
@@ -141,9 +127,10 @@
                                 </Grid>
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type char:Node}">
-                                <Grid>
+                                <StackPanel>
+                                    <Label Content="{Binding KinectJoint}" Background="YellowGreen" />
                                     <kw:TransformWidget DataContext="{Binding BindTransform}" />
-                                </Grid>
+                                </StackPanel>
                             </DataTemplate>
                         </ContentControl.Resources>
                     </ContentControl>

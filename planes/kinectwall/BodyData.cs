@@ -15,6 +15,7 @@ namespace BodyData
         public Vector3 off;
         public Vector3 scl;
         public Quaternion rot;
+        public bool offsetBeforeRot = false;
 
         public static JointTransform Identity
         {
@@ -122,16 +123,19 @@ namespace BodyData
             if (vpos.Z != 0 && Math.Abs(vpos.Z) < 1e-3)
                 vpos.Z = 0;
 
-            Matrix4 m4 = Matrix4.CreateFromQuaternion(vrot);
-            this.off =
-                Vector3.TransformPosition(vpos, m4.Inverted());
+            if (offsetBeforeRot)
+            {
+                Matrix4 m4 = Matrix4.CreateFromQuaternion(vrot);
+                this.off =
+                    Vector3.TransformPosition(vpos, m4.Inverted());
+            }
+            else this.off = vpos;
         }
         public Matrix4 M4
         {
-            get =>
-                Matrix4.CreateScale(scl) *
-                Matrix4.CreateTranslation(off) *
-                    Matrix4.CreateFromQuaternion(rot);
+            get => offsetBeforeRot ?
+                Matrix4.CreateScale(scl) * Matrix4.CreateTranslation(off) * Matrix4.CreateFromQuaternion(rot) :
+                Matrix4.CreateScale(scl) * Matrix4.CreateFromQuaternion(rot) * Matrix4.CreateTranslation(off);
             set
             {
                 SetFromMatrix(value);
@@ -368,7 +372,7 @@ namespace BodyData
 
     public class JointNode : SceneNode
     {
-        public JointType jt;
+        public JointType JType { get; set; }
         public Vector3 color;
         public float JointLength { get; set; }
         public JointTransform LocalTransform { get; set; }
@@ -402,7 +406,7 @@ namespace BodyData
             Quaternion q = LocalTransform.rot;
             Vector4 rotaxisang = q.ToAxisAngle();
             rotaxisang.W *= 180.0f / (float)Math.PI;
-            Debug.WriteLine(new string(' ', level * 2) + $"{jt} - rot={rotaxisang} off={LocalTransform.off}");
+            Debug.WriteLine(new string(' ', level * 2) + $"{JType} - rot={rotaxisang} off={LocalTransform.off}");
             if (children != null)
             {
                 foreach (JointNode cn in children)
@@ -415,7 +419,7 @@ namespace BodyData
 
         public void SetJointColor(JointType jt, Vector3 color)
         {
-            if (this.jt == jt) this.color = color;
+            if (this.JType == jt) this.color = color;
             else this.color = new Vector3(0.1f, 0.1f, 0.1f);
             if (children != null)
             {
@@ -430,10 +434,10 @@ namespace BodyData
         public void GetJointLengths(Dictionary<JointType, List<float>> jointLengths)
         {
             List<float> jl;
-            if (!jointLengths.TryGetValue(jt, out jl))
+            if (!jointLengths.TryGetValue(JType, out jl))
             {
                 jl = new List<float>();
-                jointLengths.Add(jt, jl);
+                jointLengths.Add(JType, jl);
             }
             jl.Add(JointLength);
 
@@ -471,17 +475,19 @@ namespace BodyData
 
         public void SetJoints(PoseData.Joint[] joints)
         {
-            SetJointsRec(joints);
+            SetJointsRec(joints, Vector3.Zero);
             SetJointLengths(Matrix4.Identity);
         }
 
-        void SetJointsRec(PoseData.Joint[] joints)
+        void SetJointsRec(PoseData.Joint[] joints, Vector3 parentTranslate)
         {
-            var pj = joints[(int)this.jt];
+            var pj = joints[(int)this.JType];
+            Vector3 t2 = Vector3.Zero;
             if (pj != null)
             {
+                t2 = Vector3.Transform(pj.trn, pj.rot.Inverted());
                 this.LocalTransform = new JointTransform(Matrix4.CreateFromQuaternion(pj.rot) *
-                    Matrix4.CreateTranslation(pj.trn));
+                    Matrix4.CreateTranslation(parentTranslate));
             }
             else
             {
@@ -491,7 +497,7 @@ namespace BodyData
             {
                 foreach (JointNode cn in this.children)
                 {
-                    cn.SetJointsRec(joints);
+                    cn.SetJointsRec(joints, t2);
                 }
             }
         }
@@ -510,7 +516,7 @@ namespace BodyData
         {
             Matrix4 wInv = parentWorldMat.Inverted();
 
-            Joint joint = jointPositions[jt];
+            Joint joint = jointPositions[JType];
             this.OrigWsOrientation = new Quaternion(joint.Orientation.X, joint.Orientation.Y, joint.Orientation.Z, joint.Orientation.W);
             this.OriginalWsPos = joint.Position;
             this.origRotMat = Matrix3.CreateFromQuaternion(this.OrigWsOrientation);
@@ -548,7 +554,7 @@ namespace BodyData
 
         public void GetAllJointNodes(Dictionary<JointType, JointNode> jointNodes)
         {
-            jointNodes.Add(this.jt, this);
+            jointNodes.Add(this.JType, this);
             if (children != null)
             {
                 foreach (JointNode cn in children)
@@ -628,7 +634,7 @@ namespace BodyData
             };
         }
 
-        public JointNode(JointType _jt) : base(_jt.ToString()) { jt = _jt; }
+        public JointNode(JointType _jt) : base(_jt.ToString()) { JType = _jt; }
 
         public JointNode(JointNode left, JointNode right, float interpVal) :
             base(left.Name)
@@ -638,7 +644,7 @@ namespace BodyData
             LocalTransform = Lerp(left.LocalTransform, right.LocalTransform, interpVal);
             JointLength = Lerp(left.JointLength, right.JointLength, interpVal);
             color = Lerp(left.color, right.color, interpVal);
-            jt = left.jt;
+            JType = left.JType;
             OrigWsOrientation = Lerp(left.OrigWsOrientation, right.OrigWsOrientation, interpVal);
             OriginalWsPos = Lerp(left.OriginalWsPos, right.OriginalWsPos, interpVal);
             origRotMat = Lerp(left.origRotMat, right.origRotMat, interpVal);
@@ -816,40 +822,47 @@ namespace BodyData
 
         protected override void OnRender(RenderData renderData)
         {
-            Program program = renderData.ActiveProgram;
-
-            Matrix4 matWorld =
-                    Matrix4.CreateTranslation(0, 0, -1) *
-                    Matrix4.CreateScale(
-                    new Vector3(0.01f, 0.01f, this.JointLength * 0.5f)) *
-                    this.WorldMat;
-            Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
-            program.SetMat4("uWorld", ref matWorld);
-
-            if (renderData.isPick)
+            if (renderData.passIdx != 0) return;
+            if (Parent != null)
             {
-                program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
-                    ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
-                    ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
-                    1));
-                renderData.pickObjects.Add(this);
-                renderData.pickIdx++;
+                Program program = renderData.ActiveProgram;
 
+                Vector3 size = this.LocalTransform.off;
+
+                Vector3 midpt = size * 0.5f;
+
+                Matrix4 matWorld =
+                        Matrix4.CreateScale(
+                        new Vector3(0.01f, 0.01f, size.Z * 0.5f)) *
+                        Matrix4.CreateTranslation(midpt) *
+                        this.Parent.WorldMat;
+                Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
+                program.SetMat4("uWorld", ref matWorld);
+
+                if (renderData.isPick)
+                {
+                    program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
+                        ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
+                        ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
+                        1));
+                    renderData.pickObjects.Add(this);
+                    renderData.pickIdx++;
+
+                }
+                else
+                {
+                    program.Set3("meshColor", this.color);
+                    program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
+                    program.Set3("lightPos", new Vector3(2, 5, 2));
+                    Matrix4 matWorldInvT = matWorld.Inverted();
+                    matWorldInvT.Transpose();
+                    program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
+                }
+
+                program.SetMat4("uMVP", ref matWorldViewProj);
+                // Use the vertex array
+                renderData.ActiveVA.Draw();
             }
-            else
-            {
-                program.Set3("meshColor", this.color);
-                program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
-                program.Set3("lightPos", new Vector3(2, 5, 2));
-                Matrix4 matWorldInvT = matWorld.Inverted();
-                matWorldInvT.Transpose();
-                program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
-            }
-
-            program.SetMat4("uMVP", ref matWorldViewProj);
-            // Use the vertex array
-            renderData.ActiveVA.Draw();
-
             base.OnRender(renderData);
         }
     }
@@ -1007,6 +1020,7 @@ namespace BodyData
 
         protected override void OnRender(RenderData renderData)
         {
+            if (renderData.passIdx != 0) return;
             program.Use(renderData.isPick ? 1 : 0);
             renderData.ActiveProgram = program;
             renderData.ActiveVA = cubeVA;

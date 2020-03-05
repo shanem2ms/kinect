@@ -326,7 +326,7 @@ namespace kinectwall
                             newBody.top.OnSceneNode<BodyData.JointNode>((jn) =>
                             {
                                 Quaternion q = jn.LocalTransform.rot;
-                                tb.JLimits[(int)jn.jt].ApplyQuaternion(q);
+                                tb.JLimits[(int)jn.JType].ApplyQuaternion(q);
                             });
 
                             if (frame == null)

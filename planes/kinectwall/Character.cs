@@ -41,7 +41,7 @@ namespace Character
         public Node parent = null;
         public ObservableCollection<SceneNode> children;
         public JointTransform BindTransform { get; set; } = JointTransform.Identity;
-        public JointType? kinectJoint;
+        public JointType? KinectJoint { get; set; }
         public Vector3 color;
         public List<Key>[] keys = new List<Key>[3];
 
@@ -57,32 +57,17 @@ namespace Character
 
         protected override void OnRender(RenderData renderData)
         {
-            Program program = renderData.ActiveProgram;
-
-            if (this.kinectJoint != null)
+            if (renderData.passIdx == 1)
             {
-                if (parent != null)
-                {
-                    Vector3 ppos = parent.WorldTransform.ExtractTranslation();
-                    Matrix4 wt = WorldTransform;
-                    Vector3 pos = wt.ExtractTranslation();
-                    Vector3 offset = (ppos + pos) * 0.5f;
-                    float scale = (ppos - pos).Length * 0.5f;
-                    Vector3 zDir = (pos - ppos).Normalized();
-                    wt = wt.ClearScale().ClearTranslation();
-                    Vector3 yDir = Vector3.TransformVector(Vector3.UnitY, wt);
-                    Vector3 xDir = Vector3.Cross(yDir, zDir);
-                    Matrix3 rotmat = new Matrix3(xDir, yDir, zDir);
-                    /*
-                    Matrix4 matWorld =
-                            Matrix4.CreateScale(
-                            new Vector3(0.01f, 0.01f, 0.01f)) *
-                            this.WorldTransform;*/
-                    Matrix4 matWorld =
-                        Matrix4.CreateScale(0.01f, 0.01f, scale) *
-                        new Matrix4(rotmat) *
-                        Matrix4.CreateTranslation(offset);
+                Program program = renderData.ActiveProgram;
 
+                if (this.KinectJoint != null)
+                {
+                    GL.Disable(EnableCap.DepthTest);
+                    Matrix4 matWorld =
+                                                Matrix4.CreateScale(
+                                                    new Vector3(0.01f, 0.01f, 0.01f)) *
+                                                    this.WorldTransform;
                     Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
                     program.SetMat4("uWorld", ref matWorld);
 
@@ -109,15 +94,15 @@ namespace Character
                     program.SetMat4("uMVP", ref matWorldViewProj);
                     // Use the vertex array
                     renderData.ActiveVA.Draw();
+                    GL.Enable(EnableCap.DepthTest);
                 }
-
             }
             base.OnRender(renderData);
         }
 
         public void OutputNodeDbg(int level)
         {
-            Debug.WriteLine(new string(' ', level * 2) + $"KJ={kinectJoint} {name} bt = {BindTransform}");
+            Debug.WriteLine(new string(' ', level * 2) + $"KJ={KinectJoint} {name} bt = {BindTransform}");
             if (this.children != null)
             {
                 foreach (Node cn in this.children)
@@ -165,11 +150,11 @@ namespace Character
         public void SetBody(Body b, Matrix4 matWorld)
         {
             return;
-            if (kinectJoint.HasValue)
+            if (KinectJoint.HasValue)
             {
-                JointNode jn = b.jointNodes[kinectJoint.Value];
+                JointNode jn = b.jointNodes[KinectJoint.Value];
                 Quaternion q = jn.LocalTransform.rot;
-                PoseData.Joint pj = PoseData.JointsIdx[(int)jn.jt];
+                PoseData.Joint pj = PoseData.JointsIdx[(int)jn.JType];
                 Quaternion dfp = q * pj.rot.Inverted();
 
                 this.BindTransform.rot = this.BindTransform.rot * dfp;
@@ -266,7 +251,7 @@ namespace Character
                 List<Matrix4> matList = new List<Matrix4>();
 
                 GL.UniformMatrix4(program.GetLoc("gBones"), flvals.Length / 16, false, flvals);
-                    program.Set1("gUseBones", 1);
+                program.Set1("gUseBones", 1);
 
                 /*
                 Vector3[] boneColors = this.allBones.Select(b => b.node.color).ToArray();
@@ -392,6 +377,7 @@ namespace Character
 
             Dictionary<string, Node> nodeDict = new Dictionary<string, Node>();
             this.Root = BuildModelNodes(nodeDict, model.RootNode);
+            this.Root.BindTransform = JointTransform.Identity;
             this.nodes.Add(this.Root);
 
             BuildMaterials(model);
@@ -402,11 +388,11 @@ namespace Character
             this.allBones = allBones.ToArray();
             int boneIdx = 0;
 
-            Bone leftFoot = this.allBones.FirstOrDefault(b => b.node.kinectJoint.HasValue &&
-                b.node.kinectJoint.Value == JointType.FootLeft);
-            Bone rightFoot = this.allBones.FirstOrDefault(b => b.node.kinectJoint.HasValue &&
-                b.node.kinectJoint.Value == JointType.FootRight);
-            
+            Bone leftFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
+                b.node.KinectJoint.Value == JointType.FootLeft);
+            Bone rightFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
+                b.node.KinectJoint.Value == JointType.FootRight);
+
             Vector3 leftFootPos = leftFoot.node.WorldTransform.ExtractTranslation();
             Vector3 rightFootPos = rightFoot.node.WorldTransform.ExtractTranslation();
             this.footPos = (leftFootPos + rightFootPos) * 0.5f;
@@ -443,9 +429,9 @@ namespace Character
 
             Dictionary<JointType, Node> kNodes = new Dictionary<JointType, Node>();
             var keyvals =
-                nodeDict.Values.Where(n => n.kinectJoint.HasValue).
+                nodeDict.Values.Where(n => n.KinectJoint.HasValue).
                     Select(n => new KeyValuePair<BodyData.JointType, Node>(
-                        n.kinectJoint.Value, n));
+                        n.KinectJoint.Value, n));
             foreach (var kv in keyvals)
                 kNodes.Add(kv.Key, kv.Value);
 
@@ -461,17 +447,19 @@ namespace Character
 
         protected override void OnRender(RenderData renderData)
         {
-            Matrix4[] mats = this.allBones.Select(b => (
-                b.offsetMat.M4 *
-                b.node.WorldTransform *
-                this.meshes[b.meshIdx].node.WorldTransform.Inverted())).ToArray();
-
-            foreach (Mesh m in this.meshes)
+            if (renderData.passIdx == 0)
             {
-                m.Render(this.materials, mats, renderData, this.program,
-                    this.vertexArray);
-            }
+                Matrix4[] mats = this.allBones.Select(b => (
+                    b.offsetMat.M4 *
+                    b.node.WorldTransform *
+                    this.meshes[b.meshIdx].node.WorldTransform.Inverted())).ToArray();
 
+                foreach (Mesh m in this.meshes)
+                {
+                    m.Render(this.materials, mats, renderData, this.program,
+                        this.vertexArray);
+                }
+            }
             bonePrgm.Use(renderData.isPick ? 1 : 0);
             renderData.ActiveProgram = bonePrgm;
             renderData.ActiveVA = cubeVA;
@@ -570,8 +558,8 @@ namespace Character
         {
             Node n = new Node(node.Name);
             n.BindTransform.M4 = FromMatrix(node.Transform);
-            n.kinectJoint = GetKinectJoint(n.Name);
-            n.color = GetJointColor(n.kinectJoint);
+            n.KinectJoint = GetKinectJoint(n.Name);
+            n.color = GetJointColor(n.KinectJoint);
 
             if (node.HasChildren)
                 n.children = new ObservableCollection<SceneNode>();
@@ -676,10 +664,10 @@ namespace Character
             Vector3 bfootPos = (bleftFoot + brightFoot) * 0.5f;
 
 
-            Bone cleftFoot = this.allBones.FirstOrDefault(b => b.node.kinectJoint.HasValue &&
-                b.node.kinectJoint.Value == JointType.FootLeft);
-            Bone crightFoot = this.allBones.FirstOrDefault(b => b.node.kinectJoint.HasValue &&
-                b.node.kinectJoint.Value == JointType.FootRight);
+            Bone cleftFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
+                b.node.KinectJoint.Value == JointType.FootLeft);
+            Bone crightFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
+                b.node.KinectJoint.Value == JointType.FootRight);
             Vector3 leftFootPos = cleftFoot.node.WorldTransform.ExtractTranslation();
             Vector3 rightFootPos = crightFoot.node.WorldTransform.ExtractTranslation();
             Vector3 cfootPos = (leftFootPos + rightFootPos) * 0.5f;

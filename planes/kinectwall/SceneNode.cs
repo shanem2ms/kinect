@@ -17,6 +17,7 @@ namespace BodyData
             public int pickIdx;
             public GLObjects.Program ActiveProgram;
             public GLObjects.VertexArray ActiveVA;
+            public int passIdx;
         }
         protected string name;
         public string Name => name;
