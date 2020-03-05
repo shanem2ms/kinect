@@ -10,7 +10,7 @@ using OpenTK.Graphics.ES30;
 using OpenTK;
 using GLObjects;
 using System.Diagnostics;
-using KinectData;
+using BodyData;
 using System.Drawing;
 using System.Drawing.Imaging;
 
@@ -36,7 +36,7 @@ namespace Character
         }
     }
 
-    public class Node : KinectData.SceneNode
+    public class Node : BodyData.SceneNode
     {
         public Node parent = null;
         public ObservableCollection<SceneNode> children;
@@ -186,7 +186,7 @@ namespace Character
         }
     }
 
-    class Character : KinectData.SceneNode
+    class Character : BodyData.SceneNode
     {
         public class Bone
         {
@@ -444,16 +444,16 @@ namespace Character
             Dictionary<JointType, Node> kNodes = new Dictionary<JointType, Node>();
             var keyvals =
                 nodeDict.Values.Where(n => n.kinectJoint.HasValue).
-                    Select(n => new KeyValuePair<KinectData.JointType, Node>(
+                    Select(n => new KeyValuePair<BodyData.JointType, Node>(
                         n.kinectJoint.Value, n));
             foreach (var kv in keyvals)
                 kNodes.Add(kv.Key, kv.Value);
 
             this.headToSpineSize = 0;
-            for (int idx = 1; idx < BodyData.SpineToHeadJoints.Length; ++idx)
+            for (int idx = 1; idx < BodyData.BodyData.SpineToHeadJoints.Length; ++idx)
             {
-                Vector3 pos0 = kNodes[BodyData.SpineToHeadJoints[idx - 1]].WorldTransform.ExtractTranslation();
-                Vector3 pos1 = kNodes[BodyData.SpineToHeadJoints[idx]].WorldTransform.ExtractTranslation();
+                Vector3 pos0 = kNodes[BodyData.BodyData.SpineToHeadJoints[idx - 1]].WorldTransform.ExtractTranslation();
+                Vector3 pos1 = kNodes[BodyData.BodyData.SpineToHeadJoints[idx]].WorldTransform.ExtractTranslation();
                 this.headToSpineSize += (pos1 - pos0).Length;
             }
             //OutputDebug();
@@ -540,7 +540,7 @@ namespace Character
             return maxTime;
         }
 
-        static Vector3 GetJointColor(KinectData.JointType? kjjoint)
+        static Vector3 GetJointColor(BodyData.JointType? kjjoint)
         {
             if (kjjoint == null)
                 return new Vector3(0, 0, 0);

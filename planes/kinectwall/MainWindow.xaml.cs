@@ -26,8 +26,8 @@ namespace kinectwall
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
 
-        public KinectData.SceneNode SceneRoot { get => sceneRoot; }
-        KinectData.Container sceneRoot = new KinectData.Container("root");
+        public BodyData.SceneNode SceneRoot { get => sceneRoot; }
+        BodyData.Container sceneRoot = new BodyData.Container("root");
 
         public enum Tools
         {
@@ -143,6 +143,11 @@ namespace kinectwall
                         yRot = (float)(curPt.Y - mouseDownPt.Value.Y) * 0.002f;
 
                         float distFromPivot = (curPosDn - mouseDownPivot).Length;
+                        if (distFromPivot == 0)
+                        {
+                            mouseDownPivot = curPosDn + 5 * Vector3.UnitZ;
+                            distFromPivot = (curPosDn - mouseDownPivot).Length;
+                        }
 
                         Vector3 zDir = (curPosDn - mouseDownPivot).Normalized();
                         Vector3 yDirFrm = Vector3.TransformVector(Vector3.UnitY,
@@ -194,7 +199,7 @@ namespace kinectwall
             }
         }
         System.Timers.Timer t = new System.Timers.Timer();
-        KinectData.BodyData bodyData;
+        BodyData.BodyData bodyData;
         long bodyTimeStart = 0;
         long bodyTimeLength = 0;
 
@@ -205,7 +210,7 @@ namespace kinectwall
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            KinectData.Body body = KinectData.BodyData.ReferenceBody();
+            BodyData.Body body = BodyData.BodyData.ReferenceBody();
             sceneRoot.Children.Add(body);
 
             OnPropertyChanged("SceneRoot");
@@ -215,7 +220,7 @@ namespace kinectwall
                 depthVid = new DepthVid();
             if (App.BodyFile != null)
             {
-                bodyData = new KinectData.BodyData(App.BodyFile);
+                bodyData = new BodyData.BodyData(App.BodyFile);
                 var tr = bodyData.TimeRange;
                 bodyTimeStart = tr.Item1;
                 bodyTimeLength = tr.Item2 - bodyTimeStart;
@@ -242,7 +247,7 @@ namespace kinectwall
 
         Vector3 curPos = Vector3.Zero;
         int visibleBits = 3;
-        KinectData.JointType jtSelected = 0;
+        BodyData.JointType jtSelected = 0;
         Vector3 movement = Vector3.Zero;
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -282,7 +287,7 @@ namespace kinectwall
                     curFrame.DumpDebugInfo();
                     break;
                 case Key.NumPad1:
-                    jtSelected = (KinectData.JointType)(((int)jtSelected + 1) % 24);
+                    jtSelected = (BodyData.JointType)(((int)jtSelected + 1) % 24);
                     System.Diagnostics.Debug.WriteLine($"{jtSelected}");
                     break;
 
@@ -328,7 +333,7 @@ namespace kinectwall
         bool isPlaying = false;
         long frametime = 0;
         long framerate = 10000000 / 60;
-        KinectData.Frame curFrame = null;
+        BodyData.Frame curFrame = null;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
             Matrix4 viewInv = this.viewMat.Inverted();
@@ -367,8 +372,8 @@ namespace kinectwall
 
             Matrix4 viewProj = viewMat * projectionMat;
 
-            KinectData.SceneNode.RenderData rData = 
-                new KinectData.SceneNode.RenderData();
+            BodyData.SceneNode.RenderData rData = 
+                new BodyData.SceneNode.RenderData();
 
             rData.isPick = false;
             rData.viewProj = viewProj;
@@ -395,7 +400,7 @@ namespace kinectwall
         }
 
         KinectBody.TrackedBody CurrentBody;
-        public KinectData.JointLimits []JointLimits { get => CurrentBody?.JLimits; }
+        public BodyData.JointLimits []JointLimits { get => CurrentBody?.JLimits; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -415,7 +420,7 @@ namespace kinectwall
             OnPropertyChanged("JointLimits");
         }
 
-        public KinectData.SceneNode SelectedObject { get; set; }
+        public BodyData.SceneNode SelectedObject { get; set; }
 
         void DoPick()
         {
@@ -426,10 +431,10 @@ namespace kinectwall
             Matrix4 viewProj = viewMat * projectionMat;
 
             int idxOffset = 50;
-            KinectData.SceneNode.RenderData rData =
-                new KinectData.SceneNode.RenderData();
+            BodyData.SceneNode.RenderData rData =
+                new BodyData.SceneNode.RenderData();
 
-            rData.pickObjects = new List<KinectData.SceneNode>();
+            rData.pickObjects = new List<BodyData.SceneNode>();
             rData.isPick = true;
             rData.viewProj = viewProj;
             rData.pickIdx = idxOffset;
@@ -447,7 +452,7 @@ namespace kinectwall
             if (SelectedObject != null) SelectedObject.IsSelected = false;
             if (idx >= 0 && idx < rData.pickObjects.Count)
             {
-                SelectedObject = rData.pickObjects[idx] as KinectData.SceneNode;
+                SelectedObject = rData.pickObjects[idx] as BodyData.SceneNode;
                 SelectedObject.IsSelected = true;
             }
             else
@@ -678,7 +683,7 @@ namespace kinectwall
             if (SelectedObject != null) SelectedObject.IsSelected = false;
             if (e.NewValue != null)
             {
-                this.SelectedObject = e.NewValue as KinectData.SceneNode;
+                this.SelectedObject = e.NewValue as BodyData.SceneNode;
                 this.SelectedObject.IsSelected = true;
             }
         }

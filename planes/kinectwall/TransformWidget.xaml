@@ -9,21 +9,27 @@
     <UserControl.Resources>
         <local:StringFormatConverter x:Key="StringFormatConverter" />
     </UserControl.Resources>
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <StackPanel Orientation="Vertical">
         <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <Label Content="Scale" />
             <Label Content="X" Margin="5"/>
-            <Label Content="{Binding OffX}" />
+            <TextBox Text="{Binding Path=SclX}" />
             <Label Content="Y" Margin="5"/>
-            <Label Content="{Binding OffY}" />
+            <TextBox Text="{Binding Path=SclY}" />
             <Label Content="Z" Margin="5"/>
-            <Label Content="{Binding OffZ}" />
+            <TextBox Text="{Binding Path=SclZ}" />
         </StackPanel>
-        <Grid Grid.Row="2">
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <Label Content="Offset" />
+            <Label Content="X" Margin="5"/>
+            <TextBox Text="{Binding Path=OffX}" />
+            <Label Content="Y" Margin="5"/>
+            <TextBox Text="{Binding Path=OffY}" />
+            <Label Content="Z" Margin="5"/>
+            <TextBox Text="{Binding Path=OffZ}" />
+        </StackPanel>
+
+        <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -35,14 +41,17 @@
                 <RowDefinition Height="Auto"></RowDefinition>
             </Grid.RowDefinitions>
             <Label Content="Rotation X" />
-            <Slider Grid.Column="1" Value="{Binding RotX}" MinWidth="100" Minimum="-180" Maximum="180" />
+            <Slider Grid.Column="1" Value="{Binding RotX}" MinWidth="100" Minimum="-180" Maximum="180" SmallChange="1" LargeChange="10" 
+                    IsSnapToTickEnabled="True"/>
             <Label Grid.Column="2" Content="{Binding RotX, Converter={StaticResource StringFormatConverter}}" />
             <Label Grid.Row="1" Content="Rotation Y" />
-            <Slider Grid.Row="1" Grid.Column="1" Value="{Binding RotY}" MinWidth="100" Minimum="-180" Maximum="180" />
+            <Slider Grid.Row="1" Grid.Column="1" Value="{Binding RotY}" MinWidth="100" Minimum="-180" Maximum="180" 
+                    IsSnapToTickEnabled="True"/>
             <Label Grid.Row="1" Grid.Column="2" Content="{Binding RotY, Converter={StaticResource StringFormatConverter}}" />
             <Label Grid.Row="2" Content="Rotation Z" />
-            <Slider Grid.Row="2" Grid.Column="1" Value="{Binding RotZ}" MinWidth="100" Minimum="-180" Maximum="180" />
+            <Slider Grid.Row="2" Grid.Column="1" Value="{Binding RotZ}" MinWidth="100" Minimum="-180" Maximum="180"
+                    IsSnapToTickEnabled="True"/>
             <Label Grid.Row="2" Grid.Column="2" Content="{Binding RotZ, Converter={StaticResource StringFormatConverter}}" />
         </Grid>
-    </Grid>
+    </StackPanel>
 </UserControl>

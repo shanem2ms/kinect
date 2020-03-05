@@ -1,7 +1,7 @@
 ﻿using OpenTK.Graphics.ES30;
 using OpenTK;
 using GLObjects;
-using KinectData;
+using BodyData;
 using System.Collections.Generic;
 
 namespace kinectwall
@@ -22,7 +22,7 @@ namespace kinectwall
             this.pickProgram = pickProgram;
         }
 
-        public void Pick(KinectData.Frame frame, Matrix4 viewProj,
+        public void Pick(BodyData.Frame frame, Matrix4 viewProj,
             List<object> pickObjects, int offset)
         {
             int idx = offset;
@@ -47,7 +47,7 @@ namespace kinectwall
             }
         }
 
-        public void Render(KinectData.Frame frame, Matrix4 viewProj)
+        public void Render(BodyData.Frame frame, Matrix4 viewProj)
         {
             program.Use(0);
             foreach (Body body in frame.bodies.Values)

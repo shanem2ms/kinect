@@ -8,7 +8,7 @@ using System.Diagnostics;
 using Newtonsoft.Json;
 using GLObjects;
 
-namespace KinectData
+namespace BodyData
 {
     public class JointTransform
     {
@@ -40,9 +40,13 @@ namespace KinectData
         }
 
 
-        public float OffX => off.X;
-        public float OffY => off.Y;
-        public float OffZ => off.Z;
+        public float OffX { get => off.X; set => off.X = value; }
+        public float OffY { get => off.Y; set => off.Y = value; }
+        public float OffZ { get => off.Z; set => off.Z = value; }
+
+        public float SclX { get => scl.X; set => scl.X = value; }
+        public float SclY { get => scl.Y; set => scl.Y = value; }
+        public float SclZ { get => scl.Z; set => scl.Z = value; }
 
         public Vector3 EulerRot
         {

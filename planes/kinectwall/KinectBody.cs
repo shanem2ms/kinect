@@ -5,7 +5,7 @@ using System.IO;
 using OpenTK;
 using Microsoft.Kinect;
 using Microsoft.Kinect.Face;
-using kd = KinectData;
+using kd = BodyData;
 
 namespace kinectwall
 {
@@ -323,7 +323,7 @@ namespace kinectwall
                             newBody.top.SetJoints(jointDict);
                             newBody.GetJointNodes();
 
-                            newBody.top.OnSceneNode<KinectData.JointNode>((jn) =>
+                            newBody.top.OnSceneNode<BodyData.JointNode>((jn) =>
                             {
                                 Quaternion q = jn.LocalTransform.rot;
                                 tb.JLimits[(int)jn.jt].ApplyQuaternion(q);

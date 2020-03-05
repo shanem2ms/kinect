@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:kw="clr-namespace:kinectwall"
-        xmlns:kd="clr-namespace:KinectData"
+        xmlns:kd="clr-namespace:BodyData"
         xmlns:char="clr-namespace:Character"
         xmlns:opengl="clr-namespace:OpenGL;assembly=OpenGL.Net.WinForms"
         xmlns:opentk="clr-namespace:OpenTK;assembly=OpenTK.GLControl"
