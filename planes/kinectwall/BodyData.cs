@@ -195,6 +195,7 @@ namespace BodyData
             int readPtr = 0;
 
             List<Body> bodies = new List<Body>();
+            List<Dictionary<JointType, Joint>> allJoints = new List<Dictionary<JointType, Joint>>();
             while (readPtr < bytes.Length)
             {
                 Frame frame = new Frame();
@@ -251,7 +252,7 @@ namespace BodyData
                                 TrackingState = trackingState
                             });
                         }
-                        bodies[0].joints.Add(joints);
+                        allJoints.Add(joints);
                     }
                 }
                 frames.Add(frame);
@@ -259,8 +260,9 @@ namespace BodyData
 
             foreach (Body b in bodies)
             {
+                b.joints = allJoints.ToArray();
                 b.top = JointNode.MakeBodyDef();
-                b.top.SetJoints(b.joints[0]);
+                b.top.SetJoints(b.joints);
                 b.GetJointNodes();
                 b.top.GetJointLengths(jointLengths);
                 //frame.bodies.Add(0, b);
@@ -288,77 +290,6 @@ namespace BodyData
 
             frames.Sort();
             timestamps = frames.Select(f => f.timeStamp).ToList();
-
-            Vector3 prevLeftHand = Vector3.Zero;
-            long prevLeftHandTime = 0;
-            Vector3 prevRightHand = Vector3.Zero;
-            long prevRightHandTime = 0;
-            double msPerTicks = 1.0 / TimeSpan.FromMilliseconds(1).Ticks;
-            /*
-            List<string> leftStr = new List<string>();
-            for (int fIdx = 0; fIdx < frames.Count; ++fIdx)
-            {
-                Frame f = frames[fIdx];
-                Body b = f.bodies.FirstOrDefault().Value;
-                if (b == null)
-                    continue;
-                {
-                    Joint j = b.joints[JointType.HandLeft];
-                    if (j.TrackingState == TrackingState.Tracked ||
-                        j.TrackingState == TrackingState.Inferred)
-                    {
-                        double ms = (f.timeStamp - prevLeftHandTime) * msPerTicks;
-                        double leftToLeft = (j.Position - prevLeftHand).Length / ms * 1000;
-
-                        ms = (f.timeStamp - prevRightHandTime) * msPerTicks;
-                        double leftToRight = (j.Position - prevRightHand).Length / ms * 1000;
-                        if (leftToLeft > leftToRight)
-                            leftStr.Add($"{fIdx} L2L {leftToLeft} L2R {leftToRight}");
-                    }
-                    else
-                    {
-                        leftStr.Add($"{fIdx} Left {j.TrackingState}");
-                    }
-                }
-                {
-                    Joint j = b.joints[JointType.HandRight];
-                    if (j.TrackingState == TrackingState.Tracked ||
-                        j.TrackingState == TrackingState.Inferred)
-                    {
-                        double ms = (f.timeStamp - prevRightHandTime) * msPerTicks;
-                        double rightToRight = (j.Position - prevRightHand).Length / ms * 1000;
-                        ms = (f.timeStamp - prevLeftHandTime) * msPerTicks;
-                        double rightToLeft = (j.Position - prevLeftHand).Length / ms * 1000;
-                        if (rightToRight > rightToLeft)
-                            leftStr.Add($"{fIdx} R2R {rightToRight} R2L {rightToLeft}");
-                    }
-                    else
-                    {
-                        leftStr.Add($"{fIdx} Right {j.TrackingState}");
-                    }
-                }
-                {
-                    Joint j = b.joints[JointType.HandLeft];
-                    if (j.TrackingState == TrackingState.Tracked)
-                    {
-                        prevLeftHand = j.Position;
-                        prevLeftHandTime = f.timeStamp;
-                    }
-                }
-                {
-                    Joint j = b.joints[JointType.HandRight];
-                    if (j.TrackingState == TrackingState.Tracked)
-                    {
-                        prevRightHand = j.Position;
-                        prevRightHandTime = f.timeStamp;
-                    }
-                }
-            }
-
-            string lstr = string.Join("\n", leftStr.ToArray());
-            System.Diagnostics.Debug.WriteLine(lstr);
-            */
-
         }
 
         public Frame GetInterpolatedFrame(long timestamp)
@@ -391,7 +322,6 @@ namespace BodyData
         public JointType JType { get; set; }
         public Vector3 color;
         public float JointLength { get; set; }
-        public JointTransform LocalTransform { get; set; }
         public float BoneThickness { get; set; } = 1.0f;
         public float JointThickness { get; set; } = 2.0f;
 
@@ -401,14 +331,34 @@ namespace BodyData
         public override ObservableCollection<SceneNode> Nodes => children;
         public Matrix4 WorldMat => LocalTransform.M4 * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
+        struct AnimData
+        {
+            public Matrix3 OrigRotMat;
+            public TrackingState Tracked;
+            public Quaternion OrigWsOrientation;
+            public Vector3 OriginalWsPos;
+            public JointTransform LocalTransform;
+        }
+
+        AnimData[] ad = new AnimData[1];
+
+        public int NumFrames => ad.Length;
+
+        int fIdx = 0;
+        ref AnimData Ad => ref ad[fIdx];
+
+        public JointTransform LocalTransform { get => Ad.LocalTransform; set => Ad.LocalTransform = value; }
+
         public override Matrix4 WorldMatrix => WorldMat;
         public Vector3 WorldPos => WorldMat.ExtractTranslation();
         public JointNode Parent => parent;
 
-        public Vector3 OriginalWsPos { get; set; }
-        public Quaternion OrigWsOrientation { get; set; }
-        public Matrix3 origRotMat;
-        public TrackingState Tracked;
+        public Vector3 OriginalWsPos { get => Ad.OriginalWsPos; set => Ad.OriginalWsPos = value; }
+        public Quaternion OrigWsOrientation { get => Ad.OrigWsOrientation; set => Ad.OrigWsOrientation = value; }
+
+        public Matrix3 OrigRotMat { get => Ad.OrigRotMat; set => Ad.OrigRotMat = value; }
+
+        public TrackingState Tracked { get => Ad.Tracked; set => Ad.Tracked = value; }
 
         public void AddNode(SceneNode node)
         {
@@ -527,9 +477,41 @@ namespace BodyData
             }
         }
 
-        public void SetJoints(Dictionary<JointType, Joint> jointPositions)
+        void SetNumFrames(int frameCnt)
         {
-            SetJointsRec(jointPositions, Matrix3.Identity, Matrix4.Identity);
+            this.ad = new AnimData[frameCnt];
+            if (this.children != null)
+            {
+                foreach (JointNode cn in this.children)
+                {
+                    cn.SetNumFrames(frameCnt);
+                }
+            }
+        }
+
+        public int FrameIdx => this.fIdx; 
+
+        public void SetFrame(int frameIdx)
+        {
+            this.fIdx = frameIdx;
+            if (this.children != null)
+            {
+                foreach (JointNode cn in this.children)
+                {
+                    cn.SetFrame(frameIdx);
+                }
+            }
+        }
+
+        public void SetJoints(Dictionary<JointType, Joint> []jointPositions)
+        {
+            SetNumFrames(jointPositions.Length);
+            for (int idx = 0; idx < jointPositions.Length; ++idx)
+            {
+                SetFrame(idx);
+                SetJointsRec(jointPositions[idx], Matrix3.Identity, Matrix4.Identity);
+            }
+            SetFrame(0);
             SetJointLengths(Matrix4.Identity);
 
             Dictionary<JointType, JointNode> allNodes = new Dictionary<JointType, JointNode>();
@@ -544,7 +526,7 @@ namespace BodyData
             Joint joint = jointPositions[JType];
             this.OrigWsOrientation = new Quaternion(joint.Orientation.X, joint.Orientation.Y, joint.Orientation.Z, joint.Orientation.W);
             this.OriginalWsPos = joint.Position;
-            this.origRotMat = Matrix3.CreateFromQuaternion(this.OrigWsOrientation);
+            this.OrigRotMat = Matrix3.CreateFromQuaternion(this.OrigWsOrientation);
             this.Tracked = joint.TrackingState;
             Vector3 position = Vector3.TransformPosition(
                 joint.Position, wInv);
@@ -561,7 +543,7 @@ namespace BodyData
             else
             {
                 Matrix3 localRot =
-                    this.origRotMat * parentRot.Inverted();
+                    this.OrigRotMat * parentRot.Inverted();
                 this.LocalTransform = new JointTransform(new Matrix4(localRot) *
                     Matrix4.CreateTranslation(position));
             }
@@ -572,7 +554,7 @@ namespace BodyData
             {
                 foreach (JointNode cn in this.children)
                 {
-                    cn.SetJointsRec(jointPositions, this.origRotMat, worldMat);
+                    cn.SetJointsRec(jointPositions, this.OrigRotMat, worldMat);
                 }
             }
         }
@@ -672,7 +654,7 @@ namespace BodyData
             JType = left.JType;
             OrigWsOrientation = Lerp(left.OrigWsOrientation, right.OrigWsOrientation, interpVal);
             OriginalWsPos = Lerp(left.OriginalWsPos, right.OriginalWsPos, interpVal);
-            origRotMat = Lerp(left.origRotMat, right.origRotMat, interpVal);
+            OrigRotMat = Lerp(left.OrigRotMat, right.OrigRotMat, interpVal);
             Tracked = left.Tracked;
 
             children = new ObservableCollection<SceneNode>();
@@ -1028,8 +1010,7 @@ namespace BodyData
 
     public class Body : SceneNode
     {
-        public List<Dictionary<JointType, Joint>> joints =
-            new List<Dictionary<JointType, Joint>>();
+        public Dictionary<JointType, Joint>[] joints;
 
         public Dictionary<JointType, JointNode> jointNodes =
                 new Dictionary<JointType, JointNode>();
@@ -1039,6 +1020,9 @@ namespace BodyData
         public JointNode top = null;
         public Vector2 lean;
         public FaceMesh face;
+
+        public int NumFrames => top.NumFrames;
+        public int FrameIdx { get => top.FrameIdx; set => top.SetFrame(value); }
 
         Program program;
         VertexArray cubeVA;

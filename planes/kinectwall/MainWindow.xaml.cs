@@ -208,12 +208,15 @@ namespace kinectwall
         public bool IsRecording { get => liveBodies != null ? liveBodies.IsRecording : false;
             set { if (liveBodies != null) liveBodies.IsRecording = value; } }
 
+
+        BodyData.Body activeBody;
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             if (App.BodyFile != null)
             {
                 bodyData = new BodyData.BodyData(App.BodyFile);
-                sceneRoot.Children.Add(bodyData.ActiveBody);
+                activeBody = bodyData.ActiveBody;
+                sceneRoot.Children.Add(activeBody);
             }
             else
             {
@@ -401,7 +404,12 @@ namespace kinectwall
             //if ((visibleBits & 2) != 0)
             //    charviz.Render(curFrame, viewProj);
 
-            if (isPlaying) frametime += framerate;
+            if (isPlaying)
+            {
+                int frameidx = activeBody.FrameIdx;
+                activeBody.FrameIdx = (frameidx + 1) % activeBody.NumFrames;
+                frametime += framerate;
+            }
 
             bulletSimulation.DrawDebug(viewProj);
 
