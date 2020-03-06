@@ -185,7 +185,8 @@ namespace BodyData
             return b;
         }
 
-        public Body ActiveBody => frames[0].bodies[0];
+        Body activeBody = null;
+        public Body ActiveBody => activeBody;
         public BodyData(string name)
         {
             FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
@@ -193,6 +194,7 @@ namespace BodyData
             fs.Read(bytes, 0, bytes.Length);
             int readPtr = 0;
 
+            List<Body> bodies = new List<Body>();
             while (readPtr < bytes.Length)
             {
                 Frame frame = new Frame();
@@ -207,13 +209,18 @@ namespace BodyData
                     readPtr += sizeof(bool);
                     if (isTracked)
                     {
-                        Body nb = new Body($"{name}[{i}]", this);
+                        if (bodies.Count() == 0)
+                        {
+                            Body nb = new Body($"{name}", this);
+                            bodies.Add(nb);
+                        }
 
-                        nb.lean.X = BitConverter.ToSingle(bytes, readPtr);
+                        float leanX = BitConverter.ToSingle(bytes, readPtr);
                         readPtr += sizeof(float);
-                        nb.lean.Y = BitConverter.ToSingle(bytes, readPtr);
+                        float leanY = BitConverter.ToSingle(bytes, readPtr);
                         readPtr += sizeof(float);
 
+                        Dictionary<JointType, Joint> joints = new Dictionary<JointType, Joint>();
                         for (int boneIdx = 0; boneIdx < 25; ++boneIdx)
                         {
                             JointType jt = (JointType)BitConverter.ToInt32(bytes, readPtr);
@@ -237,22 +244,29 @@ namespace BodyData
                                 readPtr += sizeof(float);
                             }
 
-                            nb.joints.Add(jt, new Joint()
+                            joints.Add(jt, new Joint()
                             {
                                 Position = new Vector3(posvals[0], posvals[1], posvals[2]),
                                 Orientation = new Vector4(rotvals[0], rotvals[1], rotvals[2], rotvals[3]),
                                 TrackingState = trackingState
                             });
                         }
-                        nb.top = JointNode.MakeBodyDef();
-                        nb.top.SetJoints(nb.joints);
-                        nb.GetJointNodes();
-                        nb.top.GetJointLengths(jointLengths);
-                        frame.bodies.Add(0, nb);
+                        bodies[0].joints.Add(joints);
                     }
                 }
                 frames.Add(frame);
             }
+
+            foreach (Body b in bodies)
+            {
+                b.top = JointNode.MakeBodyDef();
+                b.top.SetJoints(b.joints[0]);
+                b.GetJointNodes();
+                b.top.GetJointLengths(jointLengths);
+                //frame.bodies.Add(0, b);
+            }
+
+            activeBody = bodies[0];
 
             List<float> sums = new List<float>(jointLengths[SpineToHeadJoints[0]]);
             JointType[] jts = SpineToHeadJoints.Skip(1).ToArray();
@@ -280,6 +294,7 @@ namespace BodyData
             Vector3 prevRightHand = Vector3.Zero;
             long prevRightHandTime = 0;
             double msPerTicks = 1.0 / TimeSpan.FromMilliseconds(1).Ticks;
+            /*
             List<string> leftStr = new List<string>();
             for (int fIdx = 0; fIdx < frames.Count; ++fIdx)
             {
@@ -342,6 +357,7 @@ namespace BodyData
 
             string lstr = string.Join("\n", leftStr.ToArray());
             System.Diagnostics.Debug.WriteLine(lstr);
+            */
 
         }
 
@@ -1012,8 +1028,8 @@ namespace BodyData
 
     public class Body : SceneNode
     {
-        public Dictionary<JointType, Joint> joints =
-            new Dictionary<JointType, Joint>();
+        public List<Dictionary<JointType, Joint>> joints =
+            new List<Dictionary<JointType, Joint>>();
 
         public Dictionary<JointType, JointNode> jointNodes =
                 new Dictionary<JointType, JointNode>();

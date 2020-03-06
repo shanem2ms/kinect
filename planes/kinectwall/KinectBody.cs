@@ -302,7 +302,7 @@ namespace kinectwall
                             kd.Body newBody = new kd.Body("live", null);
                             newBody.top = kd.JointNode.MakeBodyDef();
                             Dictionary<kd.JointType, kd.Joint> jointDict = new Dictionary<kd.JointType, kd.Joint>();
-                            newBody.joints = new Dictionary<kd.JointType, kd.Joint>();
+                            newBody.joints = new List<Dictionary<kd.JointType, kd.Joint>>();
                             foreach (var kv in b.Joints)
                             {
                                 kd.JointType jt = (kd.JointType)kv.Key;
@@ -319,7 +319,7 @@ namespace kinectwall
                                     kv.Value.Orientation.Z,
                                     kv.Value.Orientation.W);
                             }
-                            newBody.joints = jointDict;
+                            newBody.joints.Add(jointDict);
                             newBody.top.SetJoints(jointDict);
                             newBody.GetJointNodes();
 
