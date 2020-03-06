@@ -185,6 +185,7 @@ namespace BodyData
             return b;
         }
 
+        public Body ActiveBody => frames[0].bodies[0];
         public BodyData(string name)
         {
             FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
@@ -841,7 +842,7 @@ namespace BodyData
 
                 Matrix4 matWorld =
                         Matrix4.CreateScale(
-                        new Vector3(0.01f, 0.01f, size.Z * 0.5f)) *
+                        new Vector3(0.02f, 0.02f, 0.02f)) *
                         Matrix4.CreateTranslation(midpt) *
                         this.Parent.WorldMat;
                 Matrix4 matWorldViewProj = matWorld * renderData.viewProj;

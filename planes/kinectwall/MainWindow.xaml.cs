@@ -210,8 +210,16 @@ namespace kinectwall
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            BodyData.Body body = BodyData.BodyData.ReferenceBody();
-            sceneRoot.Children.Add(body);
+            if (App.BodyFile != null)
+            {
+                bodyData = new BodyData.BodyData(App.BodyFile);
+                sceneRoot.Children.Add(bodyData.ActiveBody);
+            }
+            else
+            {
+                BodyData.Body body = BodyData.BodyData.ReferenceBody();
+                sceneRoot.Children.Add(body);
+            }
 
             OnPropertyChanged("SceneRoot");
             bulletSimulation = new BulletSimulation();
