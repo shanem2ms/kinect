@@ -55,7 +55,8 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="9" />
+                <ColumnDefinition Width="400" />
             </Grid.ColumnDefinitions>
             <WindowsFormsHost x:Name="HostControl" Margin="0,0,0,0" Grid.Column="1" >
                 <opentk:GLControl x:Name="glControl" Resize="glControl_Resize" 
@@ -70,7 +71,8 @@
                 <ListBox ItemsSource="{Binding ToolNames}" SelectionMode="Single" Width="100" SelectionChanged="Toolbar_SelectionChanged" />
                 <ItemsControl ItemsSource="{Binding BulletDraw}" ItemTemplate="{StaticResource BulletDraw}" Grid.Row="2" />
             </Grid>
-            <Grid Grid.Column="2" Width="400" Background="LightGray">
+            <GridSplitter Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            <Grid Grid.Column="3" Background="LightGray">
                 <ItemsControl 
                         Visibility="Collapsed"
                         ItemsSource="{Binding JointLimits}" ItemTemplate="{StaticResource JointLims}"/>
@@ -133,6 +135,7 @@
                                 <StackPanel>
                                     <Label Content="{Binding KinectJoint}" Background="YellowGreen" />
                                     <kw:TransformWidget DataContext="{Binding BindTransform}" />
+                                    <CheckBox Content="Bind To Body" IsChecked="{Binding Path=SetFromBody}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ContentControl.Resources>

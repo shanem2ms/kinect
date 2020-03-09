@@ -33,25 +33,36 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"></RowDefinition>
                 <RowDefinition Height="Auto"></RowDefinition>
                 <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
             </Grid.RowDefinitions>
-            <Label Content="Rotation X" />
+            <Label Content="Rot X" />
             <Slider Grid.Column="1" Value="{Binding RotX}" MinWidth="100" Minimum="-180" Maximum="180" SmallChange="1" LargeChange="10" 
                     IsSnapToTickEnabled="True"/>
-            <Label Grid.Column="2" Content="{Binding RotX, Converter={StaticResource StringFormatConverter}}" />
-            <Label Grid.Row="1" Content="Rotation Y" />
+            <TextBox Grid.Column="2" Text="{Binding Path=RotX}" />
+            <Label Grid.Row="1" Content="Rot Y" />
             <Slider Grid.Row="1" Grid.Column="1" Value="{Binding RotY}" MinWidth="100" Minimum="-180" Maximum="180" 
                     IsSnapToTickEnabled="True"/>
-            <Label Grid.Row="1" Grid.Column="2" Content="{Binding RotY, Converter={StaticResource StringFormatConverter}}" />
-            <Label Grid.Row="2" Content="Rotation Z" />
+            <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Path=RotY}" />
+            <Label Grid.Row="2" Content="Rot Z" />
             <Slider Grid.Row="2" Grid.Column="1" Value="{Binding RotZ}" MinWidth="100" Minimum="-180" Maximum="180"
                     IsSnapToTickEnabled="True"/>
-            <Label Grid.Row="2" Grid.Column="2" Content="{Binding RotZ, Converter={StaticResource StringFormatConverter}}" />
+            <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding Path=RotZ}" />
+            <Label Grid.Row="3" Grid.Column="0" Content="Quat" />
+            <Label Grid.Row="3" Grid.Column="1" Content="{Binding Rot}" />
+            <Button Grid.Row="0" Grid.Column="3" Tag="0" Content="LLim" Click="LimitSet_Click" />
+            <Button Grid.Row="1" Grid.Column="3" Tag="1" Content="LLim" />
+            <Button Grid.Row="2" Grid.Column="3" Tag="2" Content="LLim" />
+            <Button Grid.Row="0" Grid.Column="4" Tag="3" Content="ULim" />
+            <Button Grid.Row="1" Grid.Column="4" Tag="4" Content="ULim" />
+            <Button Grid.Row="2" Grid.Column="4" Tag="5" Content="ULim" />
         </Grid>
     </StackPanel>
 </UserControl>

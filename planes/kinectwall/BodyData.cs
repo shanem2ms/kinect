@@ -7,15 +7,21 @@ using System.IO;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using GLObjects;
+using System.ComponentModel;
 
 namespace BodyData
 {
-    public class JointTransform
+    public class JointTransform : INotifyPropertyChanged
     {
         public Vector3 off;
         public Vector3 scl;
         public Quaternion rot;
         public bool offsetBeforeRot = false;
+
+        public Quaternion ulimit;
+        public Quaternion llimit;
+
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public static JointTransform Identity
         {
@@ -70,6 +76,7 @@ namespace BodyData
             {
                 Vector3 e = EulerRot;
                 EulerRot = new Vector3(DToR(value), e.Y, e.Z);
+                NotifyUpdateRot();
             }
         }
 
@@ -79,6 +86,7 @@ namespace BodyData
             {
                 Vector3 e = EulerRot;
                 EulerRot = new Vector3(e.X, DToR(value), e.Z);
+                NotifyUpdateRot();
             }
         }
 
@@ -88,7 +96,21 @@ namespace BodyData
             {
                 Vector3 e = EulerRot;
                 EulerRot = new Vector3(e.X, e.Y, DToR(value));
+                NotifyUpdateRot();
             }
+        }
+
+        public Quaternion Rot => rot;
+
+        public Quaternion ULimit => ulimit;
+        public Quaternion LLimit => ulimit;
+
+        void NotifyUpdateRot()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Rot"));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("RotX"));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("RotY"));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("RotZ"));
         }
 
         void SetFromMatrix(Matrix4 value)
@@ -489,7 +511,7 @@ namespace BodyData
             }
         }
 
-        public int FrameIdx => this.fIdx; 
+        public int FrameIdx => this.fIdx;
 
         public void SetFrame(int frameIdx)
         {
@@ -503,7 +525,7 @@ namespace BodyData
             }
         }
 
-        public void SetJoints(Dictionary<JointType, Joint> []jointPositions)
+        public void SetJoints(Dictionary<JointType, Joint>[] jointPositions)
         {
             SetNumFrames(jointPositions.Length);
             for (int idx = 0; idx < jointPositions.Length; ++idx)
@@ -694,8 +716,10 @@ namespace BodyData
                                             {
                                                 BoneThickness = 8f,
                                                 color = new Vector3(0.9f, 0.9f, 0.9f),
-                                            },
-                                            new JointNode(JointType.ShoulderLeft)
+                                            }
+                                        }
+                                    },
+                                                                                new JointNode(JointType.ShoulderLeft)
                                             {
                                                 BoneThickness = 4f,
                                                 color = new Vector3(0.9f, 0.9f, 0f),
@@ -753,9 +777,6 @@ namespace BodyData
                                                     }
                                                 }
                                             }
-                                        }
-                                    }
-
                                 }
                             }
                         }
@@ -830,46 +851,43 @@ namespace BodyData
         protected override void OnRender(RenderData renderData)
         {
             if (renderData.passIdx != 0) return;
-            if (Parent != null)
+            Program program = renderData.ActiveProgram;
+
+            Vector3 size = this.LocalTransform.off;
+
+            Vector3 midpt = size * 0.5f;
+
+            Matrix4 matWorld =
+                    Matrix4.CreateScale(
+                    new Vector3(0.02f, 0.02f, 0.02f)) *
+                    Matrix4.CreateTranslation(midpt) *
+                    (this.Parent != null ? this.Parent.WorldMat : Matrix4.Identity);
+            Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
+            program.SetMat4("uWorld", ref matWorld);
+
+            if (renderData.isPick)
             {
-                Program program = renderData.ActiveProgram;
+                program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
+                    ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
+                    ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
+                    1));
+                renderData.pickObjects.Add(this);
+                renderData.pickIdx++;
 
-                Vector3 size = this.LocalTransform.off;
-
-                Vector3 midpt = size * 0.5f;
-
-                Matrix4 matWorld =
-                        Matrix4.CreateScale(
-                        new Vector3(0.02f, 0.02f, 0.02f)) *
-                        Matrix4.CreateTranslation(midpt) *
-                        this.Parent.WorldMat;
-                Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
-                program.SetMat4("uWorld", ref matWorld);
-
-                if (renderData.isPick)
-                {
-                    program.Set4("pickColor", new Vector4((renderData.pickIdx & 0xFF) / 255.0f,
-                        ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
-                        ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
-                        1));
-                    renderData.pickObjects.Add(this);
-                    renderData.pickIdx++;
-
-                }
-                else
-                {
-                    program.Set3("meshColor", this.color);
-                    program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
-                    program.Set3("lightPos", new Vector3(2, 5, 2));
-                    Matrix4 matWorldInvT = matWorld.Inverted();
-                    matWorldInvT.Transpose();
-                    program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
-                }
-
-                program.SetMat4("uMVP", ref matWorldViewProj);
-                // Use the vertex array
-                renderData.ActiveVA.Draw();
             }
+            else
+            {
+                program.Set3("meshColor", this.color);
+                program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
+                program.Set3("lightPos", new Vector3(2, 5, 2));
+                Matrix4 matWorldInvT = matWorld.Inverted();
+                matWorldInvT.Transpose();
+                program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
+            }
+
+            program.SetMat4("uMVP", ref matWorldViewProj);
+            // Use the vertex array
+            renderData.ActiveVA.Draw();
             base.OnRender(renderData);
         }
     }
@@ -1041,7 +1059,7 @@ namespace BodyData
 
         public Body(string name, BodyData bd) :
             base(name)
-        { 
+        {
             bodyData = bd;
             program = Program.FromFiles("Main.vert", "Main.frag");
             cubeVA = kinectwall.Cube.MakeCube(program);

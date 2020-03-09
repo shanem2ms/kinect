@@ -44,6 +44,7 @@ namespace Character
         public JointType? KinectJoint { get; set; }
         public Vector3 color;
         public List<Key>[] keys = new List<Key>[3];
+        public bool SetFromBody { get; set;} = false;
 
         public override Matrix4 WorldMatrix => WorldTransform;
 
@@ -149,16 +150,10 @@ namespace Character
             };
         public void SetBody(Body b, Matrix4 matWorld)
         {
-            return;
-            if (KinectJoint.HasValue)
+            if (this.SetFromBody && KinectJoint.HasValue)
             {
                 JointNode jn = b.jointNodes[KinectJoint.Value];
-                Quaternion q = jn.LocalTransform.rot;
-                PoseData.Joint pj = PoseData.JointsIdx[(int)jn.JType];
-                Quaternion dfp = q * pj.rot.Inverted();
-
-                this.BindTransform.rot = this.BindTransform.rot * dfp;
-                this.color = jn.color;
+                this.BindTransform.rot = jn.LocalTransform.rot;
             }
 
             if (children != null)
@@ -658,26 +653,6 @@ namespace Character
 
         public void SetBody(Body body)
         {
-            Root.BindTransform.off = body.top.LocalTransform.off;
-            Vector3 bleftFoot = body.jointNodes[JointType.FootLeft].WorldMat.ExtractTranslation();
-            Vector3 brightFoot = body.jointNodes[JointType.FootRight].WorldMat.ExtractTranslation();
-            Vector3 bfootPos = (bleftFoot + brightFoot) * 0.5f;
-
-
-            Bone cleftFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
-                b.node.KinectJoint.Value == JointType.FootLeft);
-            Bone crightFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
-                b.node.KinectJoint.Value == JointType.FootRight);
-            Vector3 leftFootPos = cleftFoot.node.WorldTransform.ExtractTranslation();
-            Vector3 rightFootPos = crightFoot.node.WorldTransform.ExtractTranslation();
-            Vector3 cfootPos = (leftFootPos + rightFootPos) * 0.5f;
-
-            Vector3 bpos = Root.BindTransform.off;
-            bpos.Y += (bfootPos.Y - cfootPos.Y);
-            Root.BindTransform.off = bpos;
-
-            //float bodyToCharRatio = body.bodyData.HeadToSpineSize / this.headToSpineSize;
-            //Root.bindTransform.scl = new Vector3(bodyToCharRatio, bodyToCharRatio, bodyToCharRatio);
             Root.SetBody(body, Matrix4.Identity);
         }
 

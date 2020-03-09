@@ -285,17 +285,8 @@ namespace kinectwall
                 case Key.Z:
                     movement.Y = -1;
                     break;
-                case Key.O:
-                    framerate *= 2;
-                    break;
-                case Key.P:
-                    framerate /= 2;
-                    break;
                 case Key.B:
                     visibleBits = (visibleBits + 1) % 4;
-                    break;
-                case Key.M:
-                    curFrame.DumpDebugInfo();
                     break;
                 case Key.NumPad1:
                     jtSelected = (BodyData.JointType)(((int)jtSelected + 1) % 24);
@@ -342,11 +333,12 @@ namespace kinectwall
         GLPixel[] pixels = null;
 
         bool isPlaying = false;
-        long frametime = 0;
-        long framerate = 10000000 / 60;
-        BodyData.Frame curFrame = null;
+        int frameIdx;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
+            activeBody.FrameIdx = this.frameIdx % activeBody.NumFrames;
+            this.character.SetBody(activeBody);
+
             Matrix4 viewInv = this.viewMat.Inverted();
             Vector3 zd = Vector3.TransformNormal(Vector3.UnitZ, viewInv).Normalized();
             Vector3 xd = Vector3.TransformNormal(Vector3.UnitX, viewInv).Normalized();
@@ -360,12 +352,6 @@ namespace kinectwall
                 liveBodies = new KinectBody();
                 liveBodies.OnNewTrackedBody += LiveBodies_OnNewTrackedBody;
             }
-
-            if (IsLive)
-                curFrame = liveBodies.CurrentFrame;
-            else
-                curFrame = bodyData?.GetInterpolatedFrame(bodyTimeStart +
-                    (frametime % bodyTimeLength));
 
             bulletSimulation.Step();
 
@@ -397,24 +383,12 @@ namespace kinectwall
             long timeStamp = 0;
             if (depthVid != null)
                 timeStamp = depthVid.Render(viewProj);
-            if (jtSelected > 0)
-                curFrame.SetJointColor(jtSelected, new Vector3(1, 1, 0));
-            //if (curFrame != null && (visibleBits & 1) != 0)
-            //    bodyViz.Render(curFrame, viewProj);
-            //if ((visibleBits & 2) != 0)
-            //    charviz.Render(curFrame, viewProj);
-
-            if (isPlaying)
-            {
-                int frameidx = activeBody.FrameIdx;
-                activeBody.FrameIdx = (frameidx + 1) % activeBody.NumFrames;
-                frametime += framerate;
-            }
 
             bulletSimulation.DrawDebug(viewProj);
 
             glControl.SwapBuffers();
-
+            if (isPlaying)
+                frameIdx++;
         }
 
         KinectBody.TrackedBody CurrentBody;
@@ -670,9 +644,7 @@ namespace kinectwall
 
         private void backBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (!isPlaying) frametime -= framerate;
-            else
-                frametime += new TimeSpan(0, 0, 0, 30).Ticks;
+            if (!isPlaying) frameIdx--;
 
         }
         private void playBtn_Click(object sender, RoutedEventArgs e)
@@ -684,8 +656,7 @@ namespace kinectwall
 
         private void fwdBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (!isPlaying) frametime += framerate;
-            else frametime -= new TimeSpan(0, 0, 0, 30).Ticks;
+            if (!isPlaying) frameIdx++;
         }
 
         private void Export_JointLimits(object sender, RoutedEventArgs e)

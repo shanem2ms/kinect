@@ -25,6 +25,14 @@ namespace kinectwall
         {
             InitializeComponent();
         }
+
+        private void LimitSet_Click(object sender, RoutedEventArgs e)
+        {
+            Button b = sender as Button;
+            int idx = (int)b.Tag;
+
+
+        }
     }
 
     [ValueConversion(typeof(object), typeof(string))]
