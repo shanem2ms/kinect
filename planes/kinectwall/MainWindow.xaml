@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:kw="clr-namespace:kinectwall"
-        xmlns:kd="clr-namespace:BodyData"
+        xmlns:kd="clr-namespace:Scene"
         xmlns:char="clr-namespace:Character"
         xmlns:opengl="clr-namespace:OpenGL;assembly=OpenGL.Net.WinForms"
         xmlns:opentk="clr-namespace:OpenTK;assembly=OpenTK.GLControl"
@@ -42,14 +42,21 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal">
+            <Menu>
+                <MenuItem Header="Add" Margin="10,10">
+                    <MenuItem Header="Kinect Body" />
+                    <MenuItem Header="Character" Click="AddCharacter_Click" />
+                    <MenuItem Header="Plane" />
+                </MenuItem>
+            </Menu>
+            <Rectangle Width="10" Fill="LightGray"/>
             <Button x:Name="backBtn" Margin="5" Content="Back" Click="backBtn_Click" />
             <Button x:Name="playBtn" Margin="5" Content="Play" Click="playBtn_Click" />
             <Button x:Name="fwdBtn" Margin="5" Content="Fwd" Click="fwdBtn_Click" />
-            <Rectangle Width="10" Fill="Gray"/>
+            <Rectangle Width="10" Fill="LightGray"/>
             <ToggleButton Content="Live" Margin="5" IsChecked="{Binding Path=IsLive}"/>
             <ToggleButton Content="Rec" Margin="5" IsChecked="{Binding Path=IsRecording}"/>
-            <Rectangle Width="10" Fill="Gray"/>
-            <Button Margin="5" Content="Export JL" Click="Export_JointLimits" />
+            <Rectangle Width="10" Fill="LightGray"/>
         </StackPanel>
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>

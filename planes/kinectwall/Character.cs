@@ -10,9 +10,10 @@ using OpenTK.Graphics.ES30;
 using OpenTK;
 using GLObjects;
 using System.Diagnostics;
-using BodyData;
+using Scene;
 using System.Drawing;
 using System.Drawing.Imaging;
+using Newtonsoft.Json;
 
 
 /// <summary>
@@ -36,7 +37,7 @@ namespace Character
         }
     }
 
-    public class Node : BodyData.SceneNode
+    public class Node : Scene.SceneNode
     {
         public Node parent = null;
         public ObservableCollection<SceneNode> children;
@@ -166,8 +167,14 @@ namespace Character
         }
     }
 
-    class Character : BodyData.SceneNode
+    [JsonObject(MemberSerialization.OptIn)]
+    class Character : SceneNode
     {
+        public override bool ShouldSerialize => true;
+
+        [JsonProperty]
+        public string Filename { get; set; }
+
         public class Bone
         {
             public int meshIdx;
@@ -425,16 +432,16 @@ namespace Character
             Dictionary<JointType, Node> kNodes = new Dictionary<JointType, Node>();
             var keyvals =
                 nodeDict.Values.Where(n => n.KinectJoint.HasValue).
-                    Select(n => new KeyValuePair<BodyData.JointType, Node>(
+                    Select(n => new KeyValuePair<Scene.JointType, Node>(
                         n.KinectJoint.Value, n));
             foreach (var kv in keyvals)
                 kNodes.Add(kv.Key, kv.Value);
 
             this.headToSpineSize = 0;
-            for (int idx = 1; idx < BodyData.BodyData.SpineToHeadJoints.Length; ++idx)
+            for (int idx = 1; idx < Scene.BodyData.SpineToHeadJoints.Length; ++idx)
             {
-                Vector3 pos0 = kNodes[BodyData.BodyData.SpineToHeadJoints[idx - 1]].WorldTransform.ExtractTranslation();
-                Vector3 pos1 = kNodes[BodyData.BodyData.SpineToHeadJoints[idx]].WorldTransform.ExtractTranslation();
+                Vector3 pos0 = kNodes[Scene.BodyData.SpineToHeadJoints[idx - 1]].WorldTransform.ExtractTranslation();
+                Vector3 pos1 = kNodes[Scene.BodyData.SpineToHeadJoints[idx]].WorldTransform.ExtractTranslation();
                 this.headToSpineSize += (pos1 - pos0).Length;
             }
             //OutputDebug();
@@ -523,7 +530,7 @@ namespace Character
             return maxTime;
         }
 
-        static Vector3 GetJointColor(BodyData.JointType? kjjoint)
+        static Vector3 GetJointColor(Scene.JointType? kjjoint)
         {
             if (kjjoint == null)
                 return new Vector3(0, 0, 0);

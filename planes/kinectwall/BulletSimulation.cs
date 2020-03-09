@@ -40,13 +40,13 @@ namespace kinectwall
 
     }
 
-    class RigidBody : BodyData.SceneNode
+    class RigidBody : Scene.SceneNode
     {
         ConvexTriangleMeshShape shape;
         BulletSharp.RigidBody body;
         Matrix4 worldMatrix;
 
-        public override ObservableCollection<BodyData.SceneNode> Nodes => null;
+        public override ObservableCollection<Scene.SceneNode> Nodes => null;
 
         public RigidBody(string name, Matrix4 initialPos, float mass, TriangleMesh tm) :
             base(name)

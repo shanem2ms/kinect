@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 using GLObjects;
 using System.ComponentModel;
 
-namespace BodyData
+namespace Scene
 {
     public class JointTransform : INotifyPropertyChanged
     {

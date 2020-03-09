@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BodyData
+namespace Scene
 {
     public class SceneNode
     {
@@ -24,6 +24,8 @@ namespace BodyData
         public virtual ObservableCollection<SceneNode> Nodes { get => null; }
 
         public virtual OpenTK.Matrix4 WorldMatrix => OpenTK.Matrix4.Identity;
+
+        public virtual bool ShouldSerialize { get; } = false;
 
         public bool IsSelected = false;
 

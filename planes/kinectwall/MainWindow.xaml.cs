@@ -10,7 +10,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.IO;
 using Newtonsoft.Json;
-using System.Reflection;
+using Ookii.Dialogs.Wpf;
 
 namespace kinectwall
 {
@@ -22,12 +22,12 @@ namespace kinectwall
         BodyViz bodyViz = null;
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
-        Character.Character character;
+        //Character.Character character;
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
 
-        public BodyData.SceneNode SceneRoot { get => sceneRoot; }
-        BodyData.Container sceneRoot = new BodyData.Container("root");
+        public Scene.SceneNode SceneRoot { get => sceneRoot; }
+        Scene.Container sceneRoot = new Scene.Container("root");
 
         public enum Tools
         {
@@ -199,7 +199,7 @@ namespace kinectwall
             }
         }
         System.Timers.Timer t = new System.Timers.Timer();
-        BodyData.BodyData bodyData;
+        Scene.BodyData bodyData;
         long bodyTimeStart = 0;
         long bodyTimeLength = 0;
 
@@ -209,18 +209,18 @@ namespace kinectwall
             set { if (liveBodies != null) liveBodies.IsRecording = value; } }
 
 
-        BodyData.Body activeBody;
+        Scene.Body activeBody;
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             if (App.BodyFile != null)
             {
-                bodyData = new BodyData.BodyData(App.BodyFile);
+                bodyData = new Scene.BodyData(App.BodyFile);
                 activeBody = bodyData.ActiveBody;
                 sceneRoot.Children.Add(activeBody);
             }
             else
             {
-                BodyData.Body body = BodyData.BodyData.ReferenceBody();
+                Scene.Body body = Scene.BodyData.ReferenceBody();
                 sceneRoot.Children.Add(body);
             }
 
@@ -231,14 +231,14 @@ namespace kinectwall
                 depthVid = new DepthVid();
             if (App.BodyFile != null)
             {
-                bodyData = new BodyData.BodyData(App.BodyFile);
+                bodyData = new Scene.BodyData(App.BodyFile);
                 var tr = bodyData.TimeRange;
                 bodyTimeStart = tr.Item1;
                 bodyTimeLength = tr.Item2 - bodyTimeStart;
             }
 
-            this.character = new Character.Character(App.CharacterFile);
-            this.SceneRoot.Nodes.Add(this.character);               
+            //this.character = new Character.Character(App.CharacterFile);
+            //this.SceneRoot.Nodes.Add(this.character);               
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
             glControl.Paint += GlControl_Paint;
             glControl.MouseDown += GlControl_MouseDown;
@@ -258,7 +258,7 @@ namespace kinectwall
 
         Vector3 curPos = Vector3.Zero;
         int visibleBits = 3;
-        BodyData.JointType jtSelected = 0;
+        Scene.JointType jtSelected = 0;
         Vector3 movement = Vector3.Zero;
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -289,7 +289,7 @@ namespace kinectwall
                     visibleBits = (visibleBits + 1) % 4;
                     break;
                 case Key.NumPad1:
-                    jtSelected = (BodyData.JointType)(((int)jtSelected + 1) % 24);
+                    jtSelected = (Scene.JointType)(((int)jtSelected + 1) % 24);
                     System.Diagnostics.Debug.WriteLine($"{jtSelected}");
                     break;
 
@@ -337,7 +337,7 @@ namespace kinectwall
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
             activeBody.FrameIdx = this.frameIdx % activeBody.NumFrames;
-            this.character.SetBody(activeBody);
+            //this.character.SetBody(activeBody);
 
             Matrix4 viewInv = this.viewMat.Inverted();
             Vector3 zd = Vector3.TransformNormal(Vector3.UnitZ, viewInv).Normalized();
@@ -369,8 +369,8 @@ namespace kinectwall
 
             Matrix4 viewProj = viewMat * projectionMat;
 
-            BodyData.SceneNode.RenderData rData = 
-                new BodyData.SceneNode.RenderData();
+            Scene.SceneNode.RenderData rData = 
+                new Scene.SceneNode.RenderData();
 
             rData.isPick = false;
             rData.viewProj = viewProj;
@@ -392,7 +392,7 @@ namespace kinectwall
         }
 
         KinectBody.TrackedBody CurrentBody;
-        public BodyData.JointLimits []JointLimits { get => CurrentBody?.JLimits; }
+        public Scene.JointLimits []JointLimits { get => CurrentBody?.JLimits; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -412,7 +412,7 @@ namespace kinectwall
             OnPropertyChanged("JointLimits");
         }
 
-        public BodyData.SceneNode SelectedObject { get; set; }
+        public Scene.SceneNode SelectedObject { get; set; }
 
         void DoPick()
         {
@@ -423,10 +423,10 @@ namespace kinectwall
             Matrix4 viewProj = viewMat * projectionMat;
 
             int idxOffset = 50;
-            BodyData.SceneNode.RenderData rData =
-                new BodyData.SceneNode.RenderData();
+            Scene.SceneNode.RenderData rData =
+                new Scene.SceneNode.RenderData();
 
-            rData.pickObjects = new List<BodyData.SceneNode>();
+            rData.pickObjects = new List<Scene.SceneNode>();
             rData.isPick = true;
             rData.viewProj = viewProj;
             rData.pickIdx = idxOffset;
@@ -446,7 +446,7 @@ namespace kinectwall
             if (SelectedObject != null) SelectedObject.IsSelected = false;
             if (idx >= 0 && idx < rData.pickObjects.Count)
             {
-                SelectedObject = rData.pickObjects[idx] as BodyData.SceneNode;
+                SelectedObject = rData.pickObjects[idx] as Scene.SceneNode;
                 SelectedObject.IsSelected = true;
             }
             else
@@ -674,8 +674,20 @@ namespace kinectwall
             if (SelectedObject != null) SelectedObject.IsSelected = false;
             if (e.NewValue != null)
             {
-                this.SelectedObject = e.NewValue as BodyData.SceneNode;
+                this.SelectedObject = e.NewValue as Scene.SceneNode;
                 this.SelectedObject.IsSelected = true;
+            }
+        }
+
+        private void AddCharacter_Click(object sender, RoutedEventArgs e)
+        {
+            VistaOpenFileDialog ofd = new VistaOpenFileDialog();
+            ofd.DefaultExt = ".dae"; // Default file extension
+            ofd.Filter = "Collada file (.dae)|*.dae"; // Filter files by extension
+            if (ofd.ShowDialog() == true)
+            {
+                Character.Character character = new Character.Character(ofd.FileName);
+                this.sceneRoot.Children.Add(character);
             }
         }
     }
