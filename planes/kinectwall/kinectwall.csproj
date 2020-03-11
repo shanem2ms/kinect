@@ -85,7 +85,6 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Body.cs" />
     <Compile Include="BodyData.cs" />
     <Compile Include="BulletSimulation.cs" />
     <Compile Include="Character.cs" />

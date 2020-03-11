@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace Scene
 {
+    [JsonObject(MemberSerialization.OptIn)]
     public class SceneNode
     {
         public class RenderData
@@ -19,8 +19,12 @@ namespace Scene
             public GLObjects.VertexArray ActiveVA;
             public int passIdx;
         }
+
+        [JsonProperty]
         protected string name;
+
         public string Name => name;
+
         public virtual ObservableCollection<SceneNode> Nodes { get => null; }
 
         public virtual OpenTK.Matrix4 WorldMatrix => OpenTK.Matrix4.Identity;

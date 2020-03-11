@@ -43,10 +43,14 @@
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal">
             <Menu>
+                <MenuItem Header="File" >
+                    <MenuItem Header="Load" Click="LoadScene_Click" />
+                    <MenuItem Header="Save" Click="SaveScene_Click"/>
+                </MenuItem>
                 <MenuItem Header="Add" Margin="10,10">
                     <MenuItem Header="Kinect Body" >
                         <MenuItem Header="Reference Body" Click="RefBody_Click" />
-                        <MenuItem Header="From File"/>
+                        <MenuItem Header="From File" Click="LoadBody_Click" />
                     </MenuItem>
                     <MenuItem Header="Character" Click="AddCharacter_Click" />
                     <MenuItem Header="Plane" />

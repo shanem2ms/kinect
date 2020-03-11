@@ -338,7 +338,7 @@ namespace Scene
     }
 
 
-
+    [JsonObject(MemberSerialization.OptIn)]
     public class JointNode : SceneNode
     {
         public JointType JType { get; set; }

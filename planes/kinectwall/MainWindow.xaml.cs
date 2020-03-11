@@ -19,7 +19,6 @@ namespace kinectwall
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        BodyViz bodyViz = null;
         Matrix4 projectionMat;
         Matrix4 viewMat = Matrix4.Identity;
         //Character.Character character;
@@ -691,6 +690,38 @@ namespace kinectwall
         {
             Scene.Body body = Scene.BodyData.ReferenceBody();
             sceneRoot.Children.Add(body);
+        }
+
+        private void LoadBody_Click(object sender, RoutedEventArgs e)
+        {
+            VistaOpenFileDialog ofd = new VistaOpenFileDialog();
+            ofd.DefaultExt = ".out"; // Default file extension
+            ofd.Filter = "Body file (.out)|*.out"; // Filter files by extension
+            if (ofd.ShowDialog() == true)
+            {
+                Scene.BodyData bd = new Scene.BodyData(ofd.FileName);
+                this.sceneRoot.Children.Add(bd.ActiveBody);
+            }
+
+        }
+
+        private void LoadScene_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void SaveScene_Click(object sender, RoutedEventArgs e)
+        {
+            VistaSaveFileDialog sfd = new VistaSaveFileDialog();
+            sfd.DefaultExt = ".scene";
+            sfd.Filter = "Scene (*.scene)|*.scene";
+            if (sfd.ShowDialog() == true)
+            {
+                string json = JsonConvert.SerializeObject(this.sceneRoot, Formatting.Indented);
+                StreamWriter sw = new StreamWriter(sfd.FileName);
+                sw.Write(json);
+                sw.Close();
+            }
         }
     }
 
