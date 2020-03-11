@@ -218,11 +218,6 @@ namespace kinectwall
                 activeBody = bodyData.ActiveBody;
                 sceneRoot.Children.Add(activeBody);
             }
-            else
-            {
-                Scene.Body body = Scene.BodyData.ReferenceBody();
-                sceneRoot.Children.Add(body);
-            }
 
             OnPropertyChanged("SceneRoot");
             bulletSimulation = new BulletSimulation();
@@ -336,7 +331,8 @@ namespace kinectwall
         int frameIdx;
         private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
-            activeBody.FrameIdx = this.frameIdx % activeBody.NumFrames;
+            if (activeBody != null)
+                activeBody.FrameIdx = this.frameIdx % activeBody.NumFrames;
             //this.character.SetBody(activeBody);
 
             Matrix4 viewInv = this.viewMat.Inverted();
@@ -689,6 +685,12 @@ namespace kinectwall
                 Character.Character character = new Character.Character(ofd.FileName);
                 this.sceneRoot.Children.Add(character);
             }
+        }
+
+        private void RefBody_Click(object sender, RoutedEventArgs e)
+        {
+            Scene.Body body = Scene.BodyData.ReferenceBody();
+            sceneRoot.Children.Add(body);
         }
     }
 

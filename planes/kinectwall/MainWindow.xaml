@@ -44,7 +44,10 @@
         <StackPanel Orientation="Horizontal">
             <Menu>
                 <MenuItem Header="Add" Margin="10,10">
-                    <MenuItem Header="Kinect Body" />
+                    <MenuItem Header="Kinect Body" >
+                        <MenuItem Header="Reference Body" Click="RefBody_Click" />
+                        <MenuItem Header="From File"/>
+                    </MenuItem>
                     <MenuItem Header="Character" Click="AddCharacter_Click" />
                     <MenuItem Header="Plane" />
                 </MenuItem>
