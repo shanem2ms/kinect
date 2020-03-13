@@ -91,6 +91,7 @@
     <Compile Include="Cube.cs" />
     <Compile Include="DepthVid.cs" />
     <Compile Include="KinectBody.cs" />
+    <Compile Include="SceneMesh.cs" />
     <Compile Include="SceneNode.cs" />
     <Compile Include="TransformWidget.xaml.cs">
       <DependentUpon>TransformWidget.xaml</DependentUpon>

@@ -728,6 +728,13 @@ namespace kinectwall
                 sw.Close();
             }
         }
+
+        static int addIdx = 0;
+        private void AddMeshCube_Click(object sender, RoutedEventArgs e)
+        {
+            Scene.Mesh cubeMesh = new Scene.Mesh($"Cube{addIdx++}");
+            this.sceneRoot.Children.Add(cubeMesh);
+        }
     }
 
     public class BaseNotifier : INotifyPropertyChanged
