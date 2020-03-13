@@ -33,10 +33,29 @@ namespace Scene
 
         public bool IsSelected = false;
 
+        public void Init()
+        {
+            OnInit();
+            if (Nodes != null)
+            {
+                foreach (SceneNode child in Nodes)
+                {
+                    child.Init();
+                }
+            }
+        }
+
+        protected virtual void OnInit() 
+        { 
+        }
+
         public SceneNode this[string name]
         {
             get => Nodes.FirstOrDefault(sn => sn.name == name);
         }
+
+        protected SceneNode()
+        { }
 
         protected SceneNode(string _n)
         {
@@ -80,6 +99,7 @@ namespace Scene
 
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class Container : SceneNode
     {
         public override ObservableCollection<SceneNode> Nodes => Children;
@@ -89,6 +109,7 @@ namespace Scene
         {
 
         }
+        [JsonProperty]
         public ObservableCollection<SceneNode> Children = new ObservableCollection<SceneNode>();
 
         public void Render(RenderData renderData)

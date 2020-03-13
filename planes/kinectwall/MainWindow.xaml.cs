@@ -198,7 +198,6 @@ namespace kinectwall
             }
         }
         System.Timers.Timer t = new System.Timers.Timer();
-        Scene.BodyData bodyData;
         long bodyTimeStart = 0;
         long bodyTimeLength = 0;
 
@@ -211,26 +210,11 @@ namespace kinectwall
         Scene.Body activeBody;
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            if (App.BodyFile != null)
-            {
-                bodyData = new Scene.BodyData(App.BodyFile);
-                activeBody = bodyData.ActiveBody;
-                sceneRoot.Children.Add(activeBody);
-            }
-
             OnPropertyChanged("SceneRoot");
             bulletSimulation = new BulletSimulation();
             pickProgram = GLObjects.Program.FromFiles("Pick.vert", "Pick.frag");
             if (App.DepthFile != null)
                 depthVid = new DepthVid();
-            if (App.BodyFile != null)
-            {
-                bodyData = new Scene.BodyData(App.BodyFile);
-                var tr = bodyData.TimeRange;
-                bodyTimeStart = tr.Item1;
-                bodyTimeLength = tr.Item2 - bodyTimeStart;
-            }
-
             //this.character = new Character.Character(App.CharacterFile);
             //this.SceneRoot.Nodes.Add(this.character);               
             this.projectionMat = Matrix4.CreatePerspectiveFieldOfView(60 * (float)Math.PI / 180.0f, 1, 0.5f, 50.0f);
@@ -682,6 +666,7 @@ namespace kinectwall
             if (ofd.ShowDialog() == true)
             {
                 Character.Character character = new Character.Character(ofd.FileName);
+                character.Init();
                 this.sceneRoot.Children.Add(character);
             }
         }
@@ -699,15 +684,30 @@ namespace kinectwall
             ofd.Filter = "Body file (.out)|*.out"; // Filter files by extension
             if (ofd.ShowDialog() == true)
             {
-                Scene.BodyData bd = new Scene.BodyData(ofd.FileName);
-                this.sceneRoot.Children.Add(bd.ActiveBody);
+                Scene.Body bd = new Scene.Body(ofd.FileName);
+                bd.Init();
+                this.sceneRoot.Children.Add(bd);
             }
-
         }
 
         private void LoadScene_Click(object sender, RoutedEventArgs e)
         {
-
+            VistaOpenFileDialog ofd = new VistaOpenFileDialog();
+            ofd.DefaultExt = ".scene";
+            ofd.Filter = "Scene (*.scene)|*.scene";
+            if (ofd.ShowDialog() == true)
+            {
+                StreamReader sr = new StreamReader(ofd.FileName);
+                string json = sr.ReadToEnd();
+                JsonSerializerSettings settings = new JsonSerializerSettings()
+                {
+                    TypeNameHandling = TypeNameHandling.All
+                };
+                Scene.Container root = JsonConvert.DeserializeObject<Scene.Container>(json, settings);
+                this.sceneRoot = root;
+                this.sceneRoot.Init();
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SceneRoot"));
+            }
         }
 
         private void SaveScene_Click(object sender, RoutedEventArgs e)
@@ -717,7 +717,12 @@ namespace kinectwall
             sfd.Filter = "Scene (*.scene)|*.scene";
             if (sfd.ShowDialog() == true)
             {
-                string json = JsonConvert.SerializeObject(this.sceneRoot, Formatting.Indented);
+                JsonSerializerSettings settings = new JsonSerializerSettings()
+                {
+                    TypeNameHandling = TypeNameHandling.All
+                };
+
+                string json = JsonConvert.SerializeObject(this.sceneRoot, Formatting.Indented, settings);
                 StreamWriter sw = new StreamWriter(sfd.FileName);
                 sw.Write(json);
                 sw.Close();

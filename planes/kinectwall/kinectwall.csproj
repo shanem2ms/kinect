@@ -90,7 +90,6 @@
     <Compile Include="Character.cs" />
     <Compile Include="Cube.cs" />
     <Compile Include="DepthVid.cs" />
-    <Compile Include="GLMesh.cs" />
     <Compile Include="KinectBody.cs" />
     <Compile Include="SceneNode.cs" />
     <Compile Include="TransformWidget.xaml.cs">

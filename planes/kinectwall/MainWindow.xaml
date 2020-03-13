@@ -53,7 +53,7 @@
                         <MenuItem Header="From File" Click="LoadBody_Click" />
                     </MenuItem>
                     <MenuItem Header="Character" Click="AddCharacter_Click" />
-                    <MenuItem Header="Plane" />
+                    <MenuItem Header="Cube" />
                 </MenuItem>
             </Menu>
             <Rectangle Width="10" Fill="LightGray"/>

@@ -312,10 +312,20 @@ namespace Character
         ObservableCollection<SceneNode> nodes = new ObservableCollection<SceneNode>();
         public override ObservableCollection<SceneNode> Nodes => nodes;
 
+        public Character()
+        {
+
+        }
+
+        protected override void OnInit()
+        {
+            Load(this.Filename);
+        }
+
         public Character(string path) :
             base(Path.GetFileName(path))
         {
-            Load(path);
+            this.Filename = path;
         }
 
         void GetAllBones(List<Bone> bones)

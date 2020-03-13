@@ -179,25 +179,15 @@ namespace Scene
         }
     }
 
-    public class BodyData
+    public static class BodyData
     {
         public static JointType[] SpineToHeadJoints = {
             JointType.SpineBase, JointType.SpineMid, JointType.SpineShoulder, JointType.Neck, JointType.Head };
 
-        List<Frame> frames = new List<Frame>();
-        List<long> timestamps;
-
-        float headToSpineSize;
-        public float HeadToSpineSize => headToSpineSize;
-
-        Dictionary<JointType, List<float>> jointLengths = new Dictionary<JointType, List<float>>();
-
-        public Tuple<long, long> TimeRange => new Tuple<long, long>(frames[0].timeStamp,
-            frames.Last().timeStamp);
 
         public static Body ReferenceBody()
         {
-            Body b = new Body("refbody", null);
+            Body b = new Body("refbody");
             b.top = JointNode.MakeBodyDef();
             b.lean = Vector2.Zero;
 
@@ -205,135 +195,6 @@ namespace Scene
             b.top.SetJointLengths(Matrix4.Identity);
 
             return b;
-        }
-
-        Body activeBody = null;
-        public Body ActiveBody => activeBody;
-        public BodyData(string name)
-        {
-            FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
-            byte[] bytes = new byte[fs.Length];
-            fs.Read(bytes, 0, bytes.Length);
-            int readPtr = 0;
-
-            List<Body> bodies = new List<Body>();
-            List<Dictionary<JointType, Joint>> allJoints = new List<Dictionary<JointType, Joint>>();
-            while (readPtr < bytes.Length)
-            {
-                Frame frame = new Frame();
-                frame.timeStamp = BitConverter.ToInt64(bytes, readPtr);
-                readPtr += sizeof(long);
-                int nBodies = BitConverter.ToInt32(bytes, readPtr);
-                readPtr += sizeof(int);
-                frame.bodies = new Dictionary<ulong, Body>();
-                for (int i = 0; i < nBodies; ++i)
-                {
-                    bool isTracked = BitConverter.ToBoolean(bytes, readPtr);
-                    readPtr += sizeof(bool);
-                    if (isTracked)
-                    {
-                        if (bodies.Count() == 0)
-                        {
-                            Body nb = new Body($"{name}", this);
-                            bodies.Add(nb);
-                        }
-
-                        float leanX = BitConverter.ToSingle(bytes, readPtr);
-                        readPtr += sizeof(float);
-                        float leanY = BitConverter.ToSingle(bytes, readPtr);
-                        readPtr += sizeof(float);
-
-                        Dictionary<JointType, Joint> joints = new Dictionary<JointType, Joint>();
-                        for (int boneIdx = 0; boneIdx < 25; ++boneIdx)
-                        {
-                            JointType jt = (JointType)BitConverter.ToInt32(bytes, readPtr);
-                            readPtr += sizeof(int);
-
-                            TrackingState trackingState = (TrackingState)
-                                BitConverter.ToInt32(bytes, readPtr);
-                            readPtr += sizeof(int);
-
-                            float[] posvals = new float[3];
-                            for (int fidx = 0; fidx < 3; ++fidx)
-                            {
-                                posvals[fidx] = BitConverter.ToSingle(bytes, readPtr);
-                                readPtr += sizeof(float);
-                            }
-
-                            float[] rotvals = new float[4];
-                            for (int fidx = 0; fidx < 4; ++fidx)
-                            {
-                                rotvals[fidx] = BitConverter.ToSingle(bytes, readPtr);
-                                readPtr += sizeof(float);
-                            }
-
-                            joints.Add(jt, new Joint()
-                            {
-                                Position = new Vector3(posvals[0], posvals[1], posvals[2]),
-                                Orientation = new Vector4(rotvals[0], rotvals[1], rotvals[2], rotvals[3]),
-                                TrackingState = trackingState
-                            });
-                        }
-                        allJoints.Add(joints);
-                    }
-                }
-                frames.Add(frame);
-            }
-
-            foreach (Body b in bodies)
-            {
-                b.joints = allJoints.ToArray();
-                b.top = JointNode.MakeBodyDef();
-                b.top.SetJoints(b.joints);
-                b.GetJointNodes();
-                b.top.GetJointLengths(jointLengths);
-                //frame.bodies.Add(0, b);
-            }
-
-            activeBody = bodies[0];
-
-            List<float> sums = new List<float>(jointLengths[SpineToHeadJoints[0]]);
-            JointType[] jts = SpineToHeadJoints.Skip(1).ToArray();
-            foreach (JointType jt in jts)
-            {
-                List<float> vals = jointLengths[jt];
-                for (int i = 0; i < sums.Count; ++i)
-                    sums[i] += vals[i];
-            }
-
-            {
-                List<float> jl = sums;
-                jl.Sort();
-                int clipnum = jl.Count() / 5;
-                List<float> vals = jl.GetRange(clipnum, jl.Count() - clipnum * 2);
-                float avg = vals.Average();
-                this.headToSpineSize = avg;
-            }
-
-            frames.Sort();
-            timestamps = frames.Select(f => f.timeStamp).ToList();
-        }
-
-        public Frame GetInterpolatedFrame(long timestamp)
-        {
-            int idx = timestamps.BinarySearch(timestamp);
-            if (idx >= 0f)
-                return frames[idx];
-            else
-            {
-                int rightFrameIdx = ~idx;
-                if (rightFrameIdx >= frames.Count)
-                    return frames.Last();
-                int leftFrameIdx = rightFrameIdx - 1;
-                if (leftFrameIdx < 0f)
-                    return frames[0];
-
-                Frame leftFrame = frames[leftFrameIdx];
-                Frame rightFrame = frames[rightFrameIdx];
-                float interpVal = (float)(timestamp - leftFrame.timeStamp) / (rightFrame.timeStamp -
-                    leftFrame.timeStamp);
-                return new Frame(leftFrame, rightFrame, interpVal);
-            }
         }
     }
 
@@ -388,7 +249,6 @@ namespace Scene
                 children = new ObservableCollection<SceneNode>();
             children.Add(node);
         }
-
 
         public void DebugDebugInfo(int level)
         {
@@ -1026,6 +886,7 @@ namespace Scene
         public TrackingState TrackingState;
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class Body : SceneNode
     {
         public Dictionary<JointType, Joint>[] joints;
@@ -1034,7 +895,6 @@ namespace Scene
                 new Dictionary<JointType, JointNode>();
 
 
-        public BodyData bodyData;
         public JointNode top = null;
         public Vector2 lean;
         public FaceMesh face;
@@ -1044,6 +904,9 @@ namespace Scene
 
         Program program;
         VertexArray cubeVA;
+
+        [JsonProperty]
+        public string FileName;
 
         protected override void OnRender(RenderData renderData)
         {
@@ -1057,22 +920,93 @@ namespace Scene
         public override ObservableCollection<SceneNode> Nodes => new
             ObservableCollection<SceneNode>() { top };
 
-        public Body(string name, BodyData bd) :
-            base(name)
+        public Body()
         {
-            bodyData = bd;
-            program = Program.FromFiles("Main.vert", "Main.frag");
-            cubeVA = kinectwall.Cube.MakeCube(program);
+
         }
 
-        public Body(Body left, Body right, float interpVal) :
-            base(left.Name)
+        public Body(string filepath) :
+            base(Path.GetFileName(filepath))
         {
-            bodyData = left.bodyData;
-            joints = left.joints;
-            top = new JointNode(left.top, right.top, interpVal);
-            top.SetJointLengths(Matrix4.Identity);
-            GetJointNodes();
+            this.FileName = filepath;
+        }
+
+        protected override void OnInit()
+        {
+            LoadBody(this.FileName);
+            program = Program.FromFiles("Main.vert", "Main.frag");
+            cubeVA = kinectwall.Cube.MakeCube(program);
+            base.OnInit();
+        }
+
+        void LoadBody(string name)
+        {
+            FileStream fs = new FileStream(name, FileMode.Open, FileAccess.Read);
+            byte[] bytes = new byte[fs.Length];
+            fs.Read(bytes, 0, bytes.Length);
+            int readPtr = 0;
+
+            List<Body> bodies = new List<Body>();
+            List<Dictionary<JointType, Joint>> allJoints = new List<Dictionary<JointType, Joint>>();
+            while (readPtr < bytes.Length)
+            {
+                Frame frame = new Frame();
+                frame.timeStamp = BitConverter.ToInt64(bytes, readPtr);
+                readPtr += sizeof(long);
+                int nBodies = BitConverter.ToInt32(bytes, readPtr);
+                readPtr += sizeof(int);
+                frame.bodies = new Dictionary<ulong, Body>();
+                for (int i = 0; i < nBodies; ++i)
+                {
+                    bool isTracked = BitConverter.ToBoolean(bytes, readPtr);
+                    readPtr += sizeof(bool);
+                    if (isTracked)
+                    {
+                        float leanX = BitConverter.ToSingle(bytes, readPtr);
+                        readPtr += sizeof(float);
+                        float leanY = BitConverter.ToSingle(bytes, readPtr);
+                        readPtr += sizeof(float);
+
+                        Dictionary<JointType, Joint> joints = new Dictionary<JointType, Joint>();
+                        for (int boneIdx = 0; boneIdx < 25; ++boneIdx)
+                        {
+                            JointType jt = (JointType)BitConverter.ToInt32(bytes, readPtr);
+                            readPtr += sizeof(int);
+
+                            TrackingState trackingState = (TrackingState)
+                                BitConverter.ToInt32(bytes, readPtr);
+                            readPtr += sizeof(int);
+
+                            float[] posvals = new float[3];
+                            for (int fidx = 0; fidx < 3; ++fidx)
+                            {
+                                posvals[fidx] = BitConverter.ToSingle(bytes, readPtr);
+                                readPtr += sizeof(float);
+                            }
+
+                            float[] rotvals = new float[4];
+                            for (int fidx = 0; fidx < 4; ++fidx)
+                            {
+                                rotvals[fidx] = BitConverter.ToSingle(bytes, readPtr);
+                                readPtr += sizeof(float);
+                            }
+
+                            joints.Add(jt, new Joint()
+                            {
+                                Position = new Vector3(posvals[0], posvals[1], posvals[2]),
+                                Orientation = new Vector4(rotvals[0], rotvals[1], rotvals[2], rotvals[3]),
+                                TrackingState = trackingState
+                            });
+                        }
+                        allJoints.Add(joints);
+                    }
+                }
+            }
+
+            this.joints = allJoints.ToArray();
+            this.top = JointNode.MakeBodyDef();
+            this.top.SetJoints(this.joints);
+            this.GetJointNodes();
         }
 
         public void SetJointColor(JointType jt, Vector3 color)
@@ -1123,20 +1057,6 @@ namespace Scene
             foreach (Body b in bodies.Values)
             {
                 b.SetJointColor(jt, color);
-            }
-        }
-
-        public Frame(Frame left, Frame right, float interpVal)
-        {
-            this.bodies = new Dictionary<ulong, Body>();
-            foreach (var kb in left.bodies)
-            {
-                Body rightBody;
-                if (right.bodies.TryGetValue(kb.Key, out rightBody))
-                {
-                    this.bodies.Add(kb.Key,
-                        new Body(kb.Value, rightBody, interpVal));
-                }
             }
         }
     }
