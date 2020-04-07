@@ -93,6 +93,7 @@
     <Compile Include="KinectBody.cs" />
     <Compile Include="SceneMesh.cs" />
     <Compile Include="SceneNode.cs" />
+    <Compile Include="SelectionBox.cs" />
     <Compile Include="TransformWidget.xaml.cs">
       <DependentUpon>TransformWidget.xaml</DependentUpon>
     </Compile>

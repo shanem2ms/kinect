@@ -628,4 +628,17 @@ namespace GLObjects
             _BufferElems.Dispose();
         }
     }
+
+    static class Registry
+    {
+        public static Dictionary<string, Program> Programs =
+            new Dictionary<string, Program>();
+
+        static public void LoadAllPrograms()
+        {
+            Programs.Add("mesh", Program.FromFiles("Main.vert", "Main.frag"));
+            Programs.Add("pick", Program.FromFiles("Pick.vert", "Pick.frag"));
+            Programs.Add("char", Program.FromFiles("Character.vert", "Character.frag"));
+        }
+    }
 }

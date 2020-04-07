@@ -157,7 +157,6 @@ namespace kinectwall
 
             if (frameIdx != lastFrame || needRefresh)
             {
-
                 Marshal.Copy(depthPtBytes[frameIdx % numframes], 0, depthPtsPtr, depthPtBytes[frameIdx % numframes].Length);
                 DepthFindNormals(depthPtsPtr, depthNrmPtr, this.pickXPt, this.pickYPt, dWidth, dHeight);
                 DepthMakePlanes(depthPtsPtr, genVerticesPtr, genTexCoordsPtr, depthQuads.Length, out genCount,

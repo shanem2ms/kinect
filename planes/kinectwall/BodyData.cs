@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using OpenTK;
 using System.IO;
 using System.Diagnostics;
@@ -11,6 +10,21 @@ using System.ComponentModel;
 
 namespace Scene
 {
+    interface ITransform
+    {
+        float OffX { get; set; }
+        float OffY { get; set; }
+        float OffZ { get; set; }
+
+        float SclX { get; set; }
+        float SclY { get; set; }
+        float SclZ { get; set; }
+
+        float RotX { get; set; }
+        float RotY { get; set; }
+        float RotZ { get; set; }
+    }
+
     public class JointTransform : INotifyPropertyChanged
     {
         public Vector3 off;
@@ -162,7 +176,7 @@ namespace Scene
             {
                 SetFromMatrix(value);
             }
-        }
+        }        
 
         public override string ToString()
         {
@@ -212,7 +226,6 @@ namespace Scene
         public ObservableCollection<SceneNode> children;
 
         public override ObservableCollection<SceneNode> Nodes => children;
-        public Matrix4 WorldMat => LocalTransform.M4 * ((parent != null) ? parent.WorldMat : Matrix4.Identity);
 
         struct AnimData
         {
@@ -231,9 +244,12 @@ namespace Scene
         ref AnimData Ad => ref ad[fIdx];
 
         public JointTransform LocalTransform { get => Ad.LocalTransform; set => Ad.LocalTransform = value; }
+        Matrix4? overrideLocalTransform = null;
 
-        public override Matrix4 WorldMatrix => WorldMat;
-        public Vector3 WorldPos => WorldMat.ExtractTranslation();
+        public override Matrix4 WorldMatrix =>
+            (overrideLocalTransform != null ? overrideLocalTransform.Value : LocalTransform.M4) * 
+            ((parent != null) ? parent.WorldMatrix : Matrix4.Identity);
+        public Vector3 WorldPos => WorldMatrix.ExtractTranslation();
         public JointNode Parent => parent;
 
         public Vector3 OriginalWsPos { get => Ad.OriginalWsPos; set => Ad.OriginalWsPos = value; }
@@ -242,6 +258,23 @@ namespace Scene
         public Matrix3 OrigRotMat { get => Ad.OrigRotMat; set => Ad.OrigRotMat = value; }
 
         public TrackingState Tracked { get => Ad.Tracked; set => Ad.Tracked = value; }
+
+        public override void ApplyOverrideTransform()
+        {
+            LocalTransform.M4 = overrideLocalTransform.Value;
+            overrideLocalTransform = null;
+        }
+        public override void SetOverrideWsTransform(Matrix4? transform)
+        {
+            if (transform != null)
+            {
+                overrideLocalTransform =
+                    transform.Value * (parent != null ? parent.WorldMatrix.Inverted() :
+                    Matrix4.Identity);
+            }
+            else
+                overrideLocalTransform = null;
+        }
 
         public void AddNode(SceneNode node)
         {
@@ -721,7 +754,7 @@ namespace Scene
                     Matrix4.CreateScale(
                     new Vector3(0.02f, 0.02f, 0.02f)) *
                     Matrix4.CreateTranslation(midpt) *
-                    (this.Parent != null ? this.Parent.WorldMat : Matrix4.Identity);
+                    (this.Parent != null ? this.Parent.WorldMatrix : Matrix4.Identity);
             Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
             program.SetMat4("uWorld", ref matWorld);
 
@@ -731,7 +764,7 @@ namespace Scene
                     ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
                     ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
                     1));
-                renderData.pickObjects.Add(this);
+                renderData.pickObjects.Add(new PickItem(this));
                 renderData.pickIdx++;
 
             }
@@ -740,6 +773,7 @@ namespace Scene
                 program.Set3("meshColor", this.color);
                 program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
                 program.Set3("lightPos", new Vector3(2, 5, 2));
+                program.Set1("opacity", 1.0f);
                 Matrix4 matWorldInvT = matWorld.Inverted();
                 matWorldInvT.Transpose();
                 program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
@@ -934,7 +968,7 @@ namespace Scene
         protected override void OnInit()
         {
             LoadBody(this.FileName);
-            program = Program.FromFiles("Main.vert", "Main.frag");
+            program = GLObjects.Registry.Programs["mesh"];
             cubeVA = kinectwall.Cube.MakeCube(program);
             base.OnInit();
         }
@@ -1065,7 +1099,21 @@ namespace Scene
     {
         public override Vector3 ReadJson(JsonReader reader, Type objectType, Vector3 existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
-            throw new NotImplementedException();
+            Vector3 v = new Vector3();
+            reader.Read();
+            reader.Read();
+            double vx = (double)reader.Value;
+
+            reader.Read();
+            reader.Read();
+            double vy = (double)reader.Value;
+
+            reader.Read();
+            reader.Read();
+            double vz = (double)reader.Value;
+
+            reader.Read(); // Emd
+            return new Vector3((float)vx, (float)vy, (float)vz);
         }
 
         public override void WriteJson(JsonWriter writer, Vector3 value, JsonSerializer serializer)

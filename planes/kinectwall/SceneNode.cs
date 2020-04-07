@@ -13,7 +13,7 @@ namespace Scene
         {
             public OpenTK.Matrix4 viewProj;
             public bool isPick;
-            public List<SceneNode> pickObjects;
+            public List<PickItem> pickObjects;
             public int pickIdx;
             public GLObjects.Program ActiveProgram;
             public GLObjects.VertexArray ActiveVA;
@@ -27,23 +27,19 @@ namespace Scene
 
         public virtual ObservableCollection<SceneNode> Nodes { get => null; }
 
+        public virtual SceneNode Parent { get => null; }
+
         public virtual OpenTK.Matrix4 WorldMatrix => OpenTK.Matrix4.Identity;
 
         public virtual bool ShouldSerialize { get; } = false;
 
+        public virtual void ApplyOverrideTransform() { }
+        public virtual void SetOverrideWsTransform(OpenTK.Matrix4? transform) { }
+
         public bool IsSelected = false;
 
-        public void Init()
-        {
-            OnInit();
-            if (Nodes != null)
-            {
-                foreach (SceneNode child in Nodes)
-                {
-                    child.Init();
-                }
-            }
-        }
+        protected bool isInit = false;
+
 
         protected virtual void OnInit() 
         { 
@@ -62,15 +58,22 @@ namespace Scene
             name = _n;
         }
 
-        virtual protected void OnRender(RenderData renderData) 
-        { 
+        public void Render(RenderData renderData)
+        {
+            if (!isInit)
+            { OnInit(); isInit = true; }
+            OnRender(renderData);
             if (Nodes != null)
             {
                 foreach (SceneNode child in Nodes)
                 {
-                    child.OnRender(renderData);
+                    child.Render(renderData);
                 }
             }
+        }
+
+        virtual protected void OnRender(RenderData renderData)
+        { 
         }
 
         public void GetAllObjects<T>(List<T> objlist) where T : class
@@ -112,10 +115,31 @@ namespace Scene
         [JsonProperty]
         public ObservableCollection<SceneNode> Children = new ObservableCollection<SceneNode>();
 
-        public void Render(RenderData renderData)
+    }
+
+    public enum TransformTool
+    {
+        None = 0,
+        X = 1,
+        Y = 2,
+        Z = 4,
+        Move = 8,
+        Scale = 16,
+        Rotate = 32
+    }
+
+    public class PickItem
+    {
+        public PickItem(SceneNode sn)
         {
-            this.OnRender(renderData);
+            node = sn;
         }
 
+        public PickItem(TransformTool t)
+        {
+            tool = t;            
+        }
+        public SceneNode node = null;
+        public TransformTool tool = TransformTool.None;
     }
 }

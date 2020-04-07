@@ -47,11 +47,34 @@ namespace Character
         public List<Key>[] keys = new List<Key>[3];
         public bool SetFromBody { get; set;} = false;
 
-        public override Matrix4 WorldMatrix => WorldTransform;
+        public override Matrix4 WorldMatrix
+        {
+            get
+            {
+                if (parent == null)
+                    return Transform;
+                else
+                    return Transform * parent.WorldMatrix;
+            }
+        }
 
         public override ObservableCollection<SceneNode> Nodes => children;
 
-        public Matrix4 Transform => BindTransform.M4;
+        public Matrix4 Transform => (overrideLocalTransform != null ? overrideLocalTransform.Value : BindTransform.M4);
+        Matrix4? overrideLocalTransform = null;
+
+        public override void SetOverrideWsTransform(Matrix4? transform)
+        {
+            if (transform != null)
+            {
+                overrideLocalTransform =
+                    transform.Value * (parent != null ? parent.WorldMatrix.Inverted() :
+                    Matrix4.Identity);
+            }
+            else
+                overrideLocalTransform = null;
+        }
+
 
         public Node(string _n) : base(_n)
         {
@@ -69,7 +92,7 @@ namespace Character
                     Matrix4 matWorld =
                                                 Matrix4.CreateScale(
                                                     new Vector3(0.01f, 0.01f, 0.01f)) *
-                                                    this.WorldTransform;
+                                                    this.WorldMatrix;
                     Matrix4 matWorldViewProj = matWorld * renderData.viewProj;
                     program.SetMat4("uWorld", ref matWorld);
 
@@ -79,7 +102,7 @@ namespace Character
                             ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
                             ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
                             1));
-                        renderData.pickObjects.Add(this);
+                        renderData.pickObjects.Add(new PickItem(this));
                         renderData.pickIdx++;
 
                     }
@@ -88,6 +111,7 @@ namespace Character
                         program.Set3("meshColor", this.color);
                         program.Set1("ambient", this.IsSelected ? 1.0f : 0.3f);
                         program.Set3("lightPos", new Vector3(2, 5, 2));
+                        program.Set1("opacity", 1.0f);
                         Matrix4 matWorldInvT = matWorld.Inverted();
                         matWorldInvT.Transpose();
                         program.SetMat4("uWorldInvTranspose", ref matWorldInvT);
@@ -111,17 +135,6 @@ namespace Character
                 {
                     cn.OutputNodeDbg(level + 1);
                 }
-            }
-        }
-
-        public Matrix4 WorldTransform
-        {
-            get
-            {
-                if (parent == null)
-                    return Transform;
-                else
-                    return Transform * parent.WorldTransform;
             }
         }
 
@@ -269,7 +282,7 @@ namespace Character
                 program.Set1("diffuseMap", 0);
 
                 Matrix4 matWorldViewProj =
-                    this.node.WorldTransform * renderData.viewProj;
+                    this.node.WorldMatrix * renderData.viewProj;
 
                 if (renderData.isPick)
                 {
@@ -277,7 +290,7 @@ namespace Character
                         ((renderData.pickIdx >> 8) & 0xFF) / 255.0f,
                         ((renderData.pickIdx >> 16) & 0xFF) / 255.0f,
                         1));
-                    renderData.pickObjects.Add(node);
+                    renderData.pickObjects.Add(new PickItem(node));
                     renderData.pickIdx++;
                 }
                 else
@@ -364,10 +377,10 @@ namespace Character
 
                 Debug.WriteLine("  --- Bones ----");
                 int bidx = 0;
-                Matrix4 matw = mesh.node.WorldTransform;
+                Matrix4 matw = mesh.node.WorldMatrix;
                 foreach (Bone b in mesh.bones)
                 {
-                    Matrix4 m1 = matw * b.node.WorldTransform.Inverted();
+                    Matrix4 m1 = matw * b.node.WorldMatrix.Inverted();
                     JointTransform j1 = new JointTransform();
                     j1.M4 = m1;
                     Debug.WriteLine($"   idx={bidx++} name={b.node.Name} mat={b.offsetMat} calculated={j1}");
@@ -377,8 +390,8 @@ namespace Character
 
         public void Load(string path)
         {
-            this.program = Program.FromFiles("Character.vert", "Character.frag");
-            this.bonePrgm = Program.FromFiles("Main.vert", "Main.frag");
+            this.program = Registry.Programs["char"];
+            this.bonePrgm = Registry.Programs["mesh"];
             this.cubeVA = kinectwall.Cube.MakeCube(program);
 
             ai.AssimpContext importer = new ai.AssimpContext();
@@ -405,8 +418,8 @@ namespace Character
             Bone rightFoot = this.allBones.FirstOrDefault(b => b.node.KinectJoint.HasValue &&
                 b.node.KinectJoint.Value == JointType.FootRight);
 
-            Vector3 leftFootPos = leftFoot.node.WorldTransform.ExtractTranslation();
-            Vector3 rightFootPos = rightFoot.node.WorldTransform.ExtractTranslation();
+            Vector3 leftFootPos = leftFoot.node.WorldMatrix.ExtractTranslation();
+            Vector3 rightFootPos = rightFoot.node.WorldMatrix.ExtractTranslation();
             this.footPos = (leftFootPos + rightFootPos) * 0.5f;
 
             foreach (Bone b in allBones)
@@ -414,7 +427,7 @@ namespace Character
                 b.idx = boneIdx++;
             }
 
-            Matrix4[] boneMatrices = allBones.Select(b => b.node.WorldTransform).ToArray();
+            Matrix4[] boneMatrices = allBones.Select(b => b.node.WorldMatrix).ToArray();
 
             Vector3[] pts = vertices.Select(v => v.pos).ToArray();
             Vector3[] nrm = vertices.Select(v => v.normal).ToArray();
@@ -450,8 +463,8 @@ namespace Character
             this.headToSpineSize = 0;
             for (int idx = 1; idx < Scene.BodyData.SpineToHeadJoints.Length; ++idx)
             {
-                Vector3 pos0 = kNodes[Scene.BodyData.SpineToHeadJoints[idx - 1]].WorldTransform.ExtractTranslation();
-                Vector3 pos1 = kNodes[Scene.BodyData.SpineToHeadJoints[idx]].WorldTransform.ExtractTranslation();
+                Vector3 pos0 = kNodes[Scene.BodyData.SpineToHeadJoints[idx - 1]].WorldMatrix.ExtractTranslation();
+                Vector3 pos1 = kNodes[Scene.BodyData.SpineToHeadJoints[idx]].WorldMatrix.ExtractTranslation();
                 this.headToSpineSize += (pos1 - pos0).Length;
             }
             //OutputDebug();
@@ -463,8 +476,8 @@ namespace Character
             {
                 Matrix4[] mats = this.allBones.Select(b => (
                     b.offsetMat.M4 *
-                    b.node.WorldTransform *
-                    this.meshes[b.meshIdx].node.WorldTransform.Inverted())).ToArray();
+                    b.node.WorldMatrix *
+                    this.meshes[b.meshIdx].node.WorldMatrix.Inverted())).ToArray();
 
                 foreach (Mesh m in this.meshes)
                 {
@@ -604,7 +617,7 @@ namespace Character
                     ai.Mesh mesh = model.Meshes[index];
 
                     m.materialIdx = mesh.MaterialIndex;
-                    Matrix4 wmat = m.node.WorldTransform;
+                    Matrix4 wmat = m.node.WorldMatrix;
                     for (int i = 0; i < mesh.VertexCount; i++)
                     {
                         Vertex vtx = new Vertex();

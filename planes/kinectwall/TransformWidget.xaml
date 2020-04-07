@@ -10,25 +10,61 @@
         <local:StringFormatConverter x:Key="StringFormatConverter" />
     </UserControl.Resources>
     <StackPanel Orientation="Vertical">
-        <StackPanel Orientation="Horizontal" Grid.Row="0">
-            <Label Content="Scale" />
-            <Label Content="X" Margin="5"/>
-            <TextBox Text="{Binding Path=SclX}" />
-            <Label Content="Y" Margin="5"/>
-            <TextBox Text="{Binding Path=SclY}" />
-            <Label Content="Z" Margin="5"/>
-            <TextBox Text="{Binding Path=SclZ}" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Grid.Row="0">
-            <Label Content="Offset" />
-            <Label Content="X" Margin="5"/>
-            <TextBox Text="{Binding Path=OffX}" />
-            <Label Content="Y" Margin="5"/>
-            <TextBox Text="{Binding Path=OffY}" />
-            <Label Content="Z" Margin="5"/>
-            <TextBox Text="{Binding Path=OffZ}" />
-        </StackPanel>
-
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+            </Grid.RowDefinitions>
+            <Label Content="Scl X" />
+            <Slider Grid.Column="1" Value="{Binding SclX}" MinWidth="100" Minimum="-100" Maximum="100" SmallChange="1" LargeChange="10" 
+                    IsSnapToTickEnabled="True"/>
+            <TextBox Grid.Column="2" Text="{Binding Path=SclX}" />
+            <Label Grid.Row="1" Content="Scl Y" />
+            <Slider Grid.Row="1" Grid.Column="1" Value="{Binding SclY}" MinWidth="100" Minimum="-100" Maximum="100" 
+                    IsSnapToTickEnabled="True"/>
+            <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Path=SclY}" />
+            <Label Grid.Row="2" Content="Scl Z" />
+            <Slider Grid.Row="2" Grid.Column="1" Value="{Binding SclZ}" MinWidth="100" Minimum="-100" Maximum="100" 
+                    IsSnapToTickEnabled="True"/>
+            <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding Path=SclZ}" />
+        </Grid>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+                <RowDefinition Height="Auto"></RowDefinition>
+            </Grid.RowDefinitions>
+            <Label Content="Off X" />
+            <Slider Grid.Column="1" Value="{Binding OffX}" MinWidth="100" Minimum="-20" Maximum="20" SmallChange="1" LargeChange="10" 
+                    IsSnapToTickEnabled="True"/>
+            <TextBox Grid.Column="2" Text="{Binding Path=OffX}" />
+            <Label Grid.Row="1" Content="Off Y" />
+            <Slider Grid.Row="1" Grid.Column="1" Value="{Binding OffY}" MinWidth="100" Minimum="-20" Maximum="20" 
+                    IsSnapToTickEnabled="True"/>
+            <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Path=OffY}" />
+            <Label Grid.Row="2" Content="Off Z" />
+            <Slider Grid.Row="2" Grid.Column="1" Value="{Binding OffZ}" MinWidth="100" Minimum="-20" Maximum="20"
+                    IsSnapToTickEnabled="True"/>
+            <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding Path=OffZ}" />
+        </Grid>
+        
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>

@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.IO;
 using Newtonsoft.Json;
 using Ookii.Dialogs.Wpf;
+using wf = System.Windows.Forms;
 
 namespace kinectwall
 {
@@ -24,18 +25,30 @@ namespace kinectwall
         //Character.Character character;
         private GLObjects.Program pickProgram;
         BulletSimulation bulletSimulation;
+        Scene.SceneNode selectedObject;
+        public Scene.SceneNode SelectedObject { get => selectedObject; set { selectedObject = value; selectionBox.SelectedObject = value; } }
+        Scene.TransformTool CurrentTransformTool = Scene.TransformTool.None;
 
         public Scene.SceneNode SceneRoot { get => sceneRoot; }
         Scene.Container sceneRoot = new Scene.Container("root");
+        Scene.SelectionBox selectionBox = new Scene.SelectionBox();
+        string clipBoard;
 
         public enum Tools
         {
-            Camera,
-            Pick
+            Scale,
+            Rotate,
+            Translate
         };
 
-        Tools currentTool = Tools.Pick;
+        Tools currentTool = Tools.Translate;
         public string[] ToolNames { get => Enum.GetNames(typeof(Tools)); }
+        public string SelectedTool { get => currentTool.ToString();
+            set { this.currentTool = (Tools)Enum.Parse(typeof(Tools), value);
+                this.selectionBox.BaseTool = this.currentTool == Tools.Translate ? Scene.TransformTool.Move :
+                    (this.currentTool == Tools.Scale ? Scene.TransformTool.Scale : Scene.TransformTool.Rotate);
+            }
+        }
 
         BulletDebugDraw[] bulletDebugDraw;
         public BulletDebugDraw[] BulletDraw { get => bulletDebugDraw; }
@@ -49,12 +62,14 @@ namespace kinectwall
         {
             BulletSharp.DebugDrawModes[] dmodes = (BulletSharp.DebugDrawModes[])Enum.GetValues(typeof(BulletSharp.DebugDrawModes));
             bulletDebugDraw =
-                dmodes.Select(dm => new BulletDebugDraw() { debugDrawMode = dm, 
+                dmodes.Select(dm => new BulletDebugDraw()
+                {
+                    debugDrawMode = dm,
                     OnCheckedChanged = OnBulletDebugCheckChange
                 }).ToArray();
             // use the window object as the view model in this simple example
             this.DataContext = this;
-            
+
             // initialize the components (controls) of the window
             this.InitializeComponent();
 
@@ -98,12 +113,15 @@ namespace kinectwall
         Matrix4 rotMatrix = Matrix4.CreateRotationY((float)Math.PI);
         Matrix4 rotMatrixDn;
         Vector3 curPosDn;
-        private void GlControl_MouseUp(object sender, System.Windows.Forms.MouseEventArgs e)
+        private void GlControl_MouseUp(object sender, wf.MouseEventArgs e)
         {
             mouseDownPt = null;
+            if (this.CurrentTransformTool != Scene.TransformTool.None)
+                selectionBox.EndTransform(true);
+            this.CurrentTransformTool = Scene.TransformTool.None;
         }
 
-        private void GlControl_MouseWheel(object sender, System.Windows.Forms.MouseEventArgs e)
+        private void GlControl_MouseWheel(object sender, wf.MouseEventArgs e)
         {
             double multiplier = Math.Pow(2, -e.Delta / (120.0 * 4));
             mouseDownPivot = SelectedObject != null ? SelectedObject.WorldMatrix.ExtractTranslation() :
@@ -113,14 +131,18 @@ namespace kinectwall
             curPos = mouseDownPivot + distFromPivot;
         }
 
+        Vector2 ScreenToViewport(System.Drawing.Point pt)
+        {
+            return new Vector2(((float)pt.X / (float)glControl.Width) * 2 - 1.0f,
+                             1.0f - ((float)pt.Y / (float)glControl.Height) * 2);
+        }
 
-        private void GlControl_MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
+        private void GlControl_MouseMove(object sender, wf.MouseEventArgs e)
         {
             System.Drawing.Point curPt = e.Location;
             if (mouseDownPt != null)
             {
-                if (e.Button == System.Windows.Forms.MouseButtons.Left ||
-                    e.Button == System.Windows.Forms.MouseButtons.Middle)
+                if (e.Button == wf.MouseButtons.Middle)
                 {
                     if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
                     {
@@ -166,19 +188,22 @@ namespace kinectwall
                         this.curPos = mouseDownPivot + distFromPivot * zDir;
                     }
                 }
-                else if (e.Button == System.Windows.Forms.MouseButtons.Right)
+                else if (e.Button == wf.MouseButtons.Left &&
+                        CurrentTransformTool != Scene.TransformTool.None)
                 {
-                    yRot = (float)(curPt.X - mouseDownPt.Value.X) * 0.001f;
-                    this.rotMatrix = this.rotMatrixDn * Matrix4.CreateRotationZ(yRot);
+                    Matrix4 viewProj = viewMat * projectionMat;
+
+                    this.selectionBox.Transform(
+                        ScreenToViewport(curPt),
+                            viewProj);
                 }
                 glControl.Invalidate();
             }
         }
 
-        private void GlControl_MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
+        private void GlControl_MouseDown(object sender, wf.MouseEventArgs e)
         {
-            if (currentTool == Tools.Camera || 
-                e.Button == System.Windows.Forms.MouseButtons.Middle)
+            if (e.Button == wf.MouseButtons.Middle)
             {
                 mouseDownPivot = SelectedObject != null ? SelectedObject.WorldMatrix.ExtractTranslation() :
                     Vector3.Zero;
@@ -189,12 +214,14 @@ namespace kinectwall
                 yRotDn = yRot;
                 xRotDn = xRot;
             }
-            else if (currentTool == Tools.Pick)
+            else if (e.Button == wf.MouseButtons.Right ||
+                e.Button == wf.MouseButtons.Left)
             {
+                mouseDownPt = e.Location;
                 pickPt = e.Location;
                 Vector2 ipt = new Vector2((float)pickPt.Value.X / (float)glControl.ClientSize.Width,
                     (float)pickPt.Value.Y / (float)glControl.ClientSize.Height);
-                DoPick();
+                DoPick(e.Button == wf.MouseButtons.Right);
             }
         }
         System.Timers.Timer t = new System.Timers.Timer();
@@ -203,16 +230,20 @@ namespace kinectwall
 
         KinectBody liveBodies;
         public bool IsLive { get; set; }
-        public bool IsRecording { get => liveBodies != null ? liveBodies.IsRecording : false;
-            set { if (liveBodies != null) liveBodies.IsRecording = value; } }
+        public bool IsRecording
+        {
+            get => liveBodies != null ? liveBodies.IsRecording : false;
+            set { if (liveBodies != null) liveBodies.IsRecording = value; }
+        }
 
 
         Scene.Body activeBody;
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             OnPropertyChanged("SceneRoot");
+            GLObjects.Registry.LoadAllPrograms();
             bulletSimulation = new BulletSimulation();
-            pickProgram = GLObjects.Program.FromFiles("Pick.vert", "Pick.frag");
+            pickProgram = GLObjects.Registry.Programs["pick"];
             if (App.DepthFile != null)
                 depthVid = new DepthVid();
             //this.character = new Character.Character(App.CharacterFile);
@@ -245,30 +276,39 @@ namespace kinectwall
 
             switch (e.Key)
             {
-                case Key.W:
+                case Key.Up:
                     movement.Z = -1;
                     break;
-                case Key.A:
+                case Key.Left:
                     movement.X = -1;
                     break;
-                case Key.S:
+                case Key.Down:
                     movement.Z = 1;
                     break;
-                case Key.D:
+                case Key.Right:
                     movement.X = 1;
                     break;
-                case Key.Q:
+                case Key.PageUp:
                     movement.Y = 1;
                     break;
-                case Key.Z:
+                case Key.PageDown:
                     movement.Y = -1;
-                    break;
-                case Key.B:
-                    visibleBits = (visibleBits + 1) % 4;
                     break;
                 case Key.NumPad1:
                     jtSelected = (Scene.JointType)(((int)jtSelected + 1) % 24);
                     System.Diagnostics.Debug.WriteLine($"{jtSelected}");
+                    break;
+                case Key.R:
+                    SelectedTool = Tools.Rotate.ToString();
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SelectedTool"));
+                    break;
+                case Key.G:
+                    SelectedTool = Tools.Translate.ToString();
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SelectedTool"));
+                    break;
+                case Key.S:
+                    SelectedTool = Tools.Scale.ToString();
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SelectedTool"));
                     break;
 
             }
@@ -279,20 +319,20 @@ namespace kinectwall
         {
             switch (e.Key)
             {
-                case Key.W:
-                case Key.S:
+                case Key.Up:
+                case Key.Down:
                     movement.Z = 0;
                     break;
-                case Key.A:
-                case Key.D:
+                case Key.Left:
+                case Key.Right:
                     movement.X = 0;
                     break;
-                case Key.Q:
-                case Key.Z:
+                case Key.PageUp:
+                case Key.PageDown:
                     movement.Y = 0;
                     break;
             }
-                    base.OnKeyUp(e);
+            base.OnKeyUp(e);
         }
 
         struct GLPixel
@@ -312,7 +352,7 @@ namespace kinectwall
 
         bool isPlaying = false;
         int frameIdx;
-        private void GlControl_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
+        private void GlControl_Paint(object sender, wf.PaintEventArgs e)
         {
             if (activeBody != null)
                 activeBody.FrameIdx = this.frameIdx % activeBody.NumFrames;
@@ -348,7 +388,7 @@ namespace kinectwall
 
             Matrix4 viewProj = viewMat * projectionMat;
 
-            Scene.SceneNode.RenderData rData = 
+            Scene.SceneNode.RenderData rData =
                 new Scene.SceneNode.RenderData();
 
             rData.isPick = false;
@@ -357,6 +397,8 @@ namespace kinectwall
             sceneRoot.Render(rData);
             rData.passIdx = 1;
             sceneRoot.Render(rData);
+
+            selectionBox.Render(rData);
 
             //scene.Render(viewProj);
             long timeStamp = 0;
@@ -371,7 +413,7 @@ namespace kinectwall
         }
 
         KinectBody.TrackedBody CurrentBody;
-        public Scene.JointLimits []JointLimits { get => CurrentBody?.JLimits; }
+        public Scene.JointLimits[] JointLimits { get => CurrentBody?.JLimits; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -391,9 +433,7 @@ namespace kinectwall
             OnPropertyChanged("JointLimits");
         }
 
-        public Scene.SceneNode SelectedObject { get; set; }
-
-        void DoPick()
+        void DoPick(bool fullObjectPicking)
         {
             GL.Clear(ClearBufferMask.ColorBufferBit);
             GL.Clear(ClearBufferMask.DepthBufferBit);
@@ -405,7 +445,7 @@ namespace kinectwall
             Scene.SceneNode.RenderData rData =
                 new Scene.SceneNode.RenderData();
 
-            rData.pickObjects = new List<Scene.SceneNode>();
+            rData.pickObjects = new List<Scene.PickItem>();
             rData.isPick = true;
             rData.viewProj = viewProj;
             rData.pickIdx = idxOffset;
@@ -413,6 +453,7 @@ namespace kinectwall
             sceneRoot.Render(rData);
             rData.passIdx = 1;
             sceneRoot.Render(rData);
+            selectionBox.Render(rData);
 
             if (pixels == null || pixels.Length != (glControl.Width * glControl.Height))
                 pixels = new GLPixel[glControl.Width * glControl.Height];
@@ -422,14 +463,33 @@ namespace kinectwall
             int idx = pixel.r | (pixel.g << 8) | (pixel.b << 16);
             idx -= idxOffset;
 
-            if (SelectedObject != null) SelectedObject.IsSelected = false;
+            if (fullObjectPicking)
+                if (SelectedObject != null) SelectedObject.IsSelected = false;
+
             if (idx >= 0 && idx < rData.pickObjects.Count)
             {
-                SelectedObject = rData.pickObjects[idx] as Scene.SceneNode;
-                SelectedObject.IsSelected = true;
+                Scene.PickItem pickItem = rData.pickObjects[idx];
+                if (fullObjectPicking && pickItem.node != null)
+                {
+                    SelectedObject = rData.pickObjects[idx].node;
+                    if (SelectedObject != null) SelectedObject.IsSelected = true;
+                }
+                else
+                {
+                    this.CurrentTransformTool = pickItem.tool;
+                    if (pickItem.tool != Scene.TransformTool.None)
+                    {
+                        selectionBox.BeginTransform(
+                            CurrentTransformTool,
+                            ScreenToViewport(this.mouseDownPt.Value),
+                            viewMat * projectionMat);
+                    }
+                }
             }
             else
+            {
                 SelectedObject = null;
+            }
 
             TreeViewItem tvi = GetTreeViewItem(this.SceneTree, SelectedObject);
             if (tvi != null) tvi.IsSelected = true;
@@ -615,12 +675,6 @@ namespace kinectwall
         {
         }
 
-
-        private void Toolbar_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            this.currentTool = (Tools)Enum.Parse(typeof(Tools), (string)e.AddedItems[0]);
-        }
-
         private void backBtn_Click(object sender, RoutedEventArgs e)
         {
             if (!isPlaying) frameIdx--;
@@ -666,7 +720,6 @@ namespace kinectwall
             if (ofd.ShowDialog() == true)
             {
                 Character.Character character = new Character.Character(ofd.FileName);
-                character.Init();
                 this.sceneRoot.Children.Add(character);
             }
         }
@@ -685,7 +738,6 @@ namespace kinectwall
             if (ofd.ShowDialog() == true)
             {
                 Scene.Body bd = new Scene.Body(ofd.FileName);
-                bd.Init();
                 this.sceneRoot.Children.Add(bd);
             }
         }
@@ -705,7 +757,6 @@ namespace kinectwall
                 };
                 Scene.Container root = JsonConvert.DeserializeObject<Scene.Container>(json, settings);
                 this.sceneRoot = root;
-                this.sceneRoot.Init();
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SceneRoot"));
             }
         }
@@ -734,6 +785,34 @@ namespace kinectwall
         {
             Scene.Mesh cubeMesh = new Scene.Mesh($"Cube{addIdx++}");
             this.sceneRoot.Children.Add(cubeMesh);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SceneRoot"));
+        }
+
+        private void CtrCam_Click(object sender, RoutedEventArgs e)
+        {
+            
+        }
+
+        private void Copy_Click(object sender, RoutedEventArgs e)
+        {
+            this.clipBoard = JsonConvert.SerializeObject(this.SelectedObject);
+        }
+        private void Cut_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+        private void Paste_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.clipBoard == null)
+                return;
+            Scene.SceneNode sn = 
+                JsonConvert.DeserializeObject<Scene.SceneNode>
+                    (this.clipBoard);
+            //this.SelectedObject
+        }
+        private void Delete_Click(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 
@@ -769,7 +848,7 @@ namespace kinectwall
         bool isChecked = false;
         public bool IsChecked
         {
-            get => isChecked; 
+            get => isChecked;
             set
             {
                 isChecked = value;
